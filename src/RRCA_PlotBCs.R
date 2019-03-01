@@ -10,6 +10,11 @@ wel_spd <-
   transform(Qw_acreFeetDay = 86400*Qw/43560)
 wel_spd[,c("lay", "row", "col")] <- wel_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
+str_spd <- 
+  file.path(path_RRCA, "RRCA12p_STR_StressPeriod1.csv") %>% 
+  read.csv()
+str_spd[,c("lay", "row", "col")] <- str_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
+
 ## calculate year/month/mid-month date for each stress period
 sp_first <- 1918
 sp_last  <- 2000
@@ -43,8 +48,16 @@ ggplot(yearly_Qw, aes(x=year, y=-Qw_acreFeetYear/1000)) +
 mean(yearly_Qw$Qw_acreFeetYear[yearly_Qw$year %in% seq(1981,1990)])
 mean(yearly_Qw$Qw_acreFeetYear[yearly_Qw$year %in% seq(1991,2000)])
 
-## locations of wells
+## locations of wells and stream
 wel_locations <- unique(wel_spd[,c("row", "col")])
 
-ggplot(wel_locations, aes(x=col, y=row)) +
-  geom_point()
+ggplot() +
+  geom_point(data=wel_locations, aes(x=col, y=row)) +
+  geom_raster(data=str_spd, aes(x=col, y=row, fill=SegNum))
+
+## number of stream reaches per segment
+str_spd %>% 
+  group_by(SegNum) %>% 
+  summarize(nreach = max(ReachNum)) %>% 
+  ggplot(aes(x=nreach)) +
+  geom_histogram(binwidth=1)
