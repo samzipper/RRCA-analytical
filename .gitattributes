@@ -1,0 +1,4 @@
+modflow/baseline_simple/RRCA12p.str filter=lfs diff=lfs merge=lfs -text
+modflow/baseline_simple/RRCA12p.rch filter=lfs diff=lfs merge=lfs -text
+modflow/baseline_simple/RRCA12p.evt filter=lfs diff=lfs merge=lfs -text
+modflow/baseline_simple/*.csv filter=lfs diff=lfs merge=lfs -text
