@@ -75,6 +75,26 @@ success, mfoutput = mf.run_model()
 if not success:
     raise Exception('MODFLOW did not terminate normally.')
 
+## save some files as grids
+mf.lpf.plot()  # save hk and ss
+mf.dis.plot()  # save top and botm
+mf.bas6.plot() # save ibound and strt
+
+np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-hk.txt'),
+           mf.lpf.hk[0,:,:], fmt='%e', delimiter=' ')
+np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-ss.txt'),
+           mf.lpf.ss[0,:,:], fmt='%5.2e', delimiter=' ')
+
+np.savetxt(os.path.join(model_ws_simple, modelname+'_DIS-top.txt'),
+           mf.dis.top[:,:], fmt='%10.6f', delimiter=' ')
+np.savetxt(os.path.join(model_ws_simple, modelname+'_DIS-botm.txt'),
+           mf.dis.botm[0,:,:], fmt='%6.2f', delimiter=' ')
+
+np.savetxt(os.path.join(model_ws_simple, modelname+'_BAS6-ibound.txt'),
+           mf.bas6.ibound[0,:,:], fmt='%1d', delimiter=' ')
+np.savetxt(os.path.join(model_ws_simple, modelname+'_BAS6-strt.txt'),
+           mf.bas6.strt[0,:,:], fmt='%10.6f', delimiter=' ')
+
 # getbudget files
 mfl = flopy.utils.MfListBudget(os.path.join(model_ws_simple, 'output', modelname+".out"))
 df_flux, df_vol = mfl.get_dataframes()
