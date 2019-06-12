@@ -1,18 +1,18 @@
-## RRCA_ModelDescription_WEL.R
-#' Plot locations and pumping rates for wells.
+## RRCA12p_02_PlotBCs+SelectWellSample.R
+#' Plot locations and pumping rates for wells and select a sample of wells for analysis.
 
 source(file.path("src", "paths+packages.R"))
 
 ## load stress period data (created using script RRCA12p_Load+Simplify+RunBaseline.py)
 wel_spd <- 
   file.path(path_RRCA, "RRCA12p_WEL_StressPeriodData.csv") %>% 
-  read.csv(stringsAsFactors=F) %>% 
+  readr::read_csv() %>% 
   transform(Qw_acreFeetDay = 86400*Qw/43560)
 wel_spd[,c("lay", "row", "col")] <- wel_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 str_spd <- 
   file.path(path_RRCA, "RRCA12p_STR_StressPeriod1.csv") %>% 
-  read.csv(stringsAsFactors=F) %>% 
+  readr::read_csv() %>% 
   transform(cond_proportion = cond/cond_total)
 str_spd[,c("lay", "row", "col")] <- str_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
@@ -24,26 +24,26 @@ sp <-
   lapply(., function(l) l[[3]]) %>% 
   unlist(.) %>% 
   as.numeric()
-sp_data <- data.frame(kstpkper = kstpkper,
-                      sp = sp)
+sp_data <- tibble::tibble(kstpkper = kstpkper,
+                          sp = sp)
 
 # translate to real-world time
 sp_first <- 1918
 sp_last  <- 2000
 df_time <- 
-  data.frame(year = rep(seq(sp_first, sp_last), each=12),
-             month = rep(seq(1,12), times=(1+sp_last-sp_first))) %>% 
-  transform(date_mid = ymd(paste(year, month, round(days_in_month(month)/2), sep="-")),
+  tibble::tibble(year = rep(seq(sp_first, sp_last), each=12),
+                 month = rep(seq(1,12), times=(1+sp_last-sp_first))) %>% 
+  transform(date_mid = lubridate::ymd(paste(year, month, round(lubridate::days_in_month(month)/2), sep="-")),
             sp = seq(1,length(year))) %>% 
-  left_join(sp_data, by="sp")
+  dplyr::left_join(sp_data, by="sp")
 
 ## calculate total pumping at each timestep
 monthly_Qw <- 
   wel_spd %>% 
-  left_join(df_time, by="kstpkper") %>% 
+  dplyr::left_join(df_time, by="kstpkper") %>% 
   dplyr::group_by(year, month, date_mid, sp) %>% 
   dplyr::summarize(Qw_acreFeetDaySum = sum(Qw_acreFeetDay)) %>% 
-  transform(Qw_acreFeetMonth = Qw_acreFeetDaySum*days_in_month(date_mid))
+  transform(Qw_acreFeetMonth = Qw_acreFeetDaySum*lubridate::days_in_month(date_mid))
 
 yearly_Qw <- 
   monthly_Qw %>% 
@@ -64,7 +64,7 @@ mean(yearly_Qw$Qw_acreFeetYear[yearly_Qw$year %in% seq(1991,2000)])
 ## locations of wells and stream
 wells <-
   wel_spd %>% 
-  left_join(df_time, by="kstpkper") %>% 
+  dplyr::left_join(df_time, by="kstpkper") %>% 
   dplyr::group_by(row, col) %>% 
   dplyr::summarize(Qw_acreFeetDay_mean = mean(Qw_acreFeetDay),
                    yr_pump_start = min(year),
@@ -81,18 +81,26 @@ str_sf <-
   sf::st_as_sf(., coords=c("col", "row"), crs="+init=epsg:26714")
 
 dist_well_str <- 
-  st_distance(x=wells_sf, y=str_sf)
+  sf::st_distance(x=wells_sf, y=str_sf)
 df_well_str <- 
-  data.frame(
+  tibble::tibble(
     WellNum = rep(wells_sf$WellNum, times = dim(dist_well_str)[2]),
     SegNum = rep(str_sf$SegNum, each = dim(dist_well_str)[1]),
-    dist_m = as.numeric(dist_well_str)
+    distToStream_m = as.numeric(dist_well_str)
   ) %>% 
   dplyr::group_by(WellNum) %>% 
-  dplyr::summarize(dist_closest_m = min(dist_m))
+  dplyr::summarize(distToClosestStream_m = min(distToStream_m))
+
+## add to data frame:
+#    transmissivity at well
+#    conductance of closest stream
+#    number of stream cells within (some distance threshold)
 
 
-wells <- left_join(wells, df_well_str, by="WellNum")
+
+
+
+wells <- dplyr::left_join(wells, df_well_str, by="WellNum")
 
 # random sample of wells considering location (row/col), pumping rate, pumping duration, and distance to stream
 n_wells <- 100
@@ -118,7 +126,7 @@ ggplot(wells, aes(x=Qw_acreFeetDay_mean)) +
 
 ## number of stream reaches per segment
 str_spd %>% 
-  group_by(SegNum) %>% 
-  summarize(nreach = max(ReachNum)) %>% 
+  dplyr::group_by(SegNum) %>% 
+  dplyr::summarize(nreach = max(ReachNum)) %>% 
   ggplot(aes(x=nreach)) +
   geom_histogram(binwidth=1)
