@@ -188,3 +188,24 @@ for sp in range(0,nper):
 # save strem segment utput
 well_data_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_WEL_StressPeriodData.csv'), index=False,
                      header=['lay','row','col','Qw','kstpkper'], float_format='%5.3f')
+
+## get head
+## look at head output
+# Create the headfile object
+h = bf.HeadFile(os.path.join(model_ws_simple, 'output', modelname+'.head'), text='head')
+
+# extract data matrix
+h.get_kstpkper()
+head = h.get_data(kstpkper=(0, 0))  # steady state head
+head[head <= mf.bas6.hnoflo] = np.nan
+plt.imshow(head[0,:,:]); plt.colorbar()
+
+# calculate WTD
+wtd = mf.dis.top[:,:] - head[0,:,:]
+plt.imshow(wtd); plt.colorbar()
+plt.imshow(wtd<0)
+
+## save data to plot in R
+# head and water table depth
+np.savetxt(os.path.join(model_ws, 'head.txt'), head[0,:,:])
+np.savetxt(os.path.join(model_ws, 'wtd.txt'), wtd)
