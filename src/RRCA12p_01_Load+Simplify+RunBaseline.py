@@ -65,18 +65,19 @@ shutil.copy2(os.path.join(model_ws_baseline, modelname+'.str'), model_ws_simple)
 shutil.copy2(os.path.join(model_ws_baseline, modelname+'.drn'), model_ws_simple)
 shutil.copy2(os.path.join(model_ws_baseline, modelname+'.evt'), model_ws_simple)
 shutil.copy2(os.path.join(model_ws_baseline, modelname+'.rch'), model_ws_simple)
-shutil.copytree(os.path.join(model_ws_baseline, 'input_data'), os.path.join(model_ws_simple, 'input_data'))
+if not os.path.isdir(os.path.join(model_ws_simple, 'input_data')):
+    shutil.copytree(os.path.join(model_ws_baseline, 'input_data'), os.path.join(model_ws_simple, 'input_data'))
 
 # NAM file has some unneeded data output files remaining in it; grab a template that was hand-created previously
 shutil.copy2(os.path.join(model_ws_baseline, modelname+'_template.nam'), os.path.join(model_ws_simple, modelname+'.nam'))
 if not os.path.isdir(os.path.join(model_ws_simple, 'output')):
     os.makedirs(os.path.join(model_ws_simple, 'output'))
-success, mfoutput = mf.run_model()
+success, mfoutput = mf.run_model(silent=False)
 if not success:
     raise Exception('MODFLOW did not terminate normally.')
 
 ## save some files as grids
-mf.lpf.plot()  # save hk and ss
+mf.lpf.plot()  # save hk, sy and ss
 mf.dis.plot()  # save top and botm
 mf.bas6.plot() # save ibound and strt
 
@@ -84,6 +85,8 @@ np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-hk.txt'),
            mf.lpf.hk[0,:,:], fmt='%e', delimiter=' ')
 np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-ss.txt'),
            mf.lpf.ss[0,:,:], fmt='%5.2e', delimiter=' ')
+np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-sy.txt'),
+           mf.lpf.sy[0,:,:], fmt='%5.2e', delimiter=' ')
 
 np.savetxt(os.path.join(model_ws_simple, modelname+'_DIS-top.txt'),
            mf.dis.top[:,:], fmt='%10.6f', delimiter=' ')
@@ -94,6 +97,9 @@ np.savetxt(os.path.join(model_ws_simple, modelname+'_BAS6-ibound.txt'),
            mf.bas6.ibound[0,:,:], fmt='%1d', delimiter=' ')
 np.savetxt(os.path.join(model_ws_simple, modelname+'_BAS6-strt.txt'),
            mf.bas6.strt[0,:,:], fmt='%10.6f', delimiter=' ')
+
+np.savetxt(os.path.join(model_ws_simple, modelname+'_RCH-rech.txt'),
+           mf.rch.rech[0][:,:], fmt='%5.2e', delimiter=' ')
 
 # getbudget files
 mfl = flopy.utils.MfListBudget(os.path.join(model_ws_simple, 'output', modelname+".out"))
@@ -202,10 +208,14 @@ plt.imshow(head[0,:,:]); plt.colorbar()
 
 # calculate WTD
 wtd = mf.dis.top[:,:] - head[0,:,:]
-plt.imshow(wtd); plt.colorbar()
-plt.imshow(wtd<0)
+
+head_end = h.get_data(kstpkper=(1, 996))
+head_end[head_end <= mf.bas6.hnoflo] = np.nan
+
+ddn = head[0,:,:] - head_end[0,:,:]
 
 ## save data to plot in R
 # head and water table depth
-np.savetxt(os.path.join(model_ws, 'head.txt'), head[0,:,:])
-np.savetxt(os.path.join(model_ws, 'wtd.txt'), wtd)
+np.savetxt(os.path.join(model_ws_simple, 'RRCA12p_Head-SS.txt'), head[0,:,:])
+np.savetxt(os.path.join(model_ws_simple, 'RRCA12p_Head-End.txt'), head_end[0,:,:])
+np.savetxt(os.path.join(model_ws_simple, 'RRCA12p-WTD.txt'), wtd)
