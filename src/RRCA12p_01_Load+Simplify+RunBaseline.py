@@ -48,11 +48,9 @@ for sp in range(1,(nper-1)):
     oc_spd[(sp,(nstp[sp]-1))] = ['save budget']
 oc_spd[((nper-1),nstp[(nper-1)]-1)] = ['save head', 'save budget']
 oc = flopy.modflow.ModflowOc(mf, stress_period_data=oc_spd, compact=True,
-                             extension=['oc', 'head', 'ddn', 'ccf', 'ibo'],
-                             unitnumber=[11,30,52,40,0])
+                             extension=['oc', 'head', 'ddn', 'ccf', 'dcf', 'ibo'],
+                             unitnumber=[11,30,52,40,43,0])
 
-# turn off LPF cell-by-cell flow
-mf.lpf.ipakcb = 0
 
 ## write input files
 mf.write_input(SelPackList=packages_simplify)
@@ -169,9 +167,15 @@ str_cbf.close()
 #plt.plot(net_leakage, seg_compare['leakage'], 'o')
 #plt.plot([min(net_leakage), max(net_leakage)], [min(net_leakage), max(net_leakage)])
 
-# save strem segment utput
+# save strem segment output
 seg_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_STR_Leakage.csv'), index=False,
            header=['SegNum','leakage','kstpkper'])
+
+## get constant head boundary
+CHB_rows = (mf.bas6.ibound[0,:,:]==-1).nonzero()[0]
+CHB_cols = (mf.bas6.ibound[0,:,:]==-1).nonzero()[1]
+
+mf.bas6.ibound[0,2,144]
 
 ## extract boundary condition data that can be plotted in R
 # wells
