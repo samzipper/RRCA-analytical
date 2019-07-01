@@ -3,6 +3,8 @@
 *.head
 *.scf
 
+modflow/*/*.csv
+
 # History files
 .Rhistory
 .Rapp.history

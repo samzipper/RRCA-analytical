@@ -5,20 +5,20 @@ source(file.path("src", "paths+packages.R"))
 
 ## load stress period data (created using script RRCA12p_Load+Simplify+RunBaseline.py)
 wel_spd <- 
-  file.path(path_RRCA, "RRCA12p_WEL_StressPeriodData.csv") %>% 
+  file.path(output_simple, "RRCA12p_WEL_StressPeriodData.csv") %>% 
   readr::read_csv() %>% 
   transform(Qw_acreFeetDay = 86400*Qw/43560)
 wel_spd[,c("lay", "row", "col")] <- wel_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 str_spd <- 
-  file.path(path_RRCA, "RRCA12p_STR_StressPeriod1.csv") %>% 
+  file.path(output_simple, "RRCA12p_STR_StressPeriod1.csv") %>% 
   readr::read_csv() %>% 
   transform(cond_proportion = cond/cond_total,
             BC = "STR")
 str_spd[,c("lay", "row", "col")] <- str_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 budget_spd <- 
-  file.path(path_RRCA, "RRCA12p_BudgetFlux.csv") %>% 
+  file.path(output_simple, "RRCA12p_BudgetFlux.csv") %>% 
   readr::read_csv()
 
 ## extract constant head boundaries from ibound
@@ -222,6 +222,7 @@ wells_all <-
 ggplot() +
   geom_raster(data = subset(model_df, ibound != 0), aes(x = col, y = row, fill = hk)) +
   geom_point(data = wells_all, aes(x = col, y = row, color = distToClosestStream_m), shape = 21) +
+  geom_point(data = subset(wells_all, WellNum == 11638), aes(x = col, y = row), color = "red", size = 2) +
   viridis::scale_fill_viridis(trans = "log10") +
   NULL
 

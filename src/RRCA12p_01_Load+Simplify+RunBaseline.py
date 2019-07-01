@@ -17,7 +17,6 @@ path2mf = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/Models/MODF
 onedrive_ws = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
 model_ws_baseline = os.path.join(onedrive_ws, 'baseline')  # original version of model
 model_ws_simple = os.path.join(onedrive_ws, 'baseline_simple')  # where to save this model
-output_path = os.path.join('modflow', 'baseline_simple')
 
 # what packages to rewrite:
 packages_simplify = ['OC', 'PCG', 'WEL', 'LPF', 'DIS']
@@ -54,7 +53,6 @@ oc_spd[((nper-1),nstp[(nper-1)]-1)] = ['save head', 'save budget']
 oc = flopy.modflow.ModflowOc(mf, stress_period_data=oc_spd, compact=True,
                              extension=['oc', 'head', 'ddn', 'ccf', 'ect', 'dcf', 'ibo'],
                              unitnumber=[11,30,52,40,42,43,0])
-
 
 ## write input files
 mf.write_input(SelPackList=packages_simplify)

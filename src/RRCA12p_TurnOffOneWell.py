@@ -1,11 +1,14 @@
-## RRCA12p_02_PostprocessBaseline.py
-# This will postprocess the simplified baseline model created by RRCA12p_01_...
+## RRCA12p_TurnOffOneWell.py
+# This script is intended to turn off one well and postprocess the output. 
+# It is used to test the methods that will eventually implemented for automated
+# runs of many wells.
 
 import os
 import numpy as np
 import flopy
 import flopy.utils.binaryfile as bf
 import matplotlib.pyplot as plt
+import shutil
 import pandas as pd
 
 ## set up your model
@@ -13,34 +16,64 @@ modelname = 'RRCA12p'
 modflow_v = 'mf2k'
 path2mf = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
 onedrive_ws = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
+
+## paths for baseline model
 model_ws_simple = os.path.join(onedrive_ws, 'baseline_simple')
+output_path = os.path.join('modflow', 'baseline_simple')
 
 ## Load model
 mf = flopy.modflow.Modflow.load(modelname+'.nam', model_ws=model_ws_simple, 
         exe_name=path2mf, version=modflow_v, forgive=True)
 nper = mf.dis.nper
 
-### input data - discretization, hydrostratigraphy, etc
-np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-hk.txt'),
-           mf.lpf.hk[0,:,:], fmt='%e', delimiter=' ')
-np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-ss.txt'),
-           mf.lpf.ss[0,:,:], fmt='%5.2e', delimiter=' ')
-np.savetxt(os.path.join(model_ws_simple, modelname+'_LPF-sy.txt'),
-           mf.lpf.sy[0,:,:], fmt='%5.2e', delimiter=' ')
+## well number and location to turn off
+WellNum = 0
+well_row = 22
+well_col = 135
 
-np.savetxt(os.path.join(model_ws_simple, modelname+'_DIS-top.txt'),
-           mf.dis.top[:,:], fmt='%10.6f', delimiter=' ')
-np.savetxt(os.path.join(model_ws_simple, modelname+'_DIS-botm.txt'),
-           mf.dis.botm[0,:,:], fmt='%6.2f', delimiter=' ')
+## paths for this simulation
+output_well = os.path.join('modflow', 'wells')
+model_ws_well = os.path.join(onedrive_ws, 'well'+str(WellNum))
 
-np.savetxt(os.path.join(model_ws_simple, modelname+'_BAS6-ibound.txt'),
-           mf.bas6.ibound[0,:,:], fmt='%1d', delimiter=' ')
-np.savetxt(os.path.join(model_ws_simple, modelname+'_BAS6-strt.txt'),
-           mf.bas6.strt[0,:,:], fmt='%10.6f', delimiter=' ')
+## change model workspace
+mf.change_model_ws(new_pth = model_ws_well)
 
-np.savetxt(os.path.join(model_ws_simple, modelname+'_RCH-rech.txt'),
-           mf.rch.rech[0][:,:], fmt='%5.2e', delimiter=' ')
+## change well stress period data to 0 for all timesteps
+for sp in range(1,nper):  # start at 1 because no pumping in sp 0 (steady-state)
+    # figure out if this well is active in the current stress period
+    i = np.where(mf.wel.stress_period_data[sp]['i'] == well_row)
+    j = np.where(mf.wel.stress_period_data[sp]['j'] == well_col)
+    well_index = np.intersect1d(i, j)
+    
+    # if it is active, disable it
+    if well_index.size == 0:
+        print('Well '+str(WellNum)+' inactive for sp '+str(sp))
+    elif well_index.size == 1:
+        mf.wel.stress_period_data[sp]['flux'][well_index] = [0.0]
+        print('Well '+str(WellNum)+' disabled for sp '+str(sp))
+    else:
+        raise ValueError('Well '+str(WellNum)+' index length error for sp '+str(sp))
+        
+## set up model
+mf.write_input(SelPackList=['WEL']) # write WEL file
 
+# copy template NAM file that refers back to baseline_simple for all other inputs
+shutil.copy2(os.path.join(model_ws_simple, modelname+'_well_template.nam'), os.path.join(model_ws_well, modelname+'.nam'))
+
+# copy input data which is referred to within model files
+if not os.path.isdir(os.path.join(model_ws_well, 'input_data')):
+    shutil.copytree(os.path.join(model_ws_simple, 'input_data'), os.path.join(model_ws_well, 'input_data'))
+
+# make output folder
+if not os.path.isdir(os.path.join(model_ws_well, 'output')):
+    os.makedirs(os.path.join(model_ws_well, 'output'))
+
+## run model
+success, mfoutput = mf.run_model(silent=False)
+if not success:
+    raise Exception('MODFLOW did not terminate normally.')
+
+### postprocessing
 ### output - stream leakage
 # locations should be the same for all stress periods so just use first one
 stream_data = pd.DataFrame(mf.str.stress_period_data[0])
@@ -55,15 +88,9 @@ row = stream_data['i'].tolist()
 col = stream_data['j'].tolist()
 
 # open cell by cell flow data
-str_cbf = bf.CellBudgetFile(os.path.join(model_ws_simple, 'output', modelname+'.scf'))
+str_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.scf'))
 str_out = str_cbf.get_data(text='  STREAM LEAKAGE', full3D=True)
 str_times = str_cbf.get_kstpkper()
-
-# save stream locations
-stream_df_sp1 = stream_data.copy()
-stream_df_sp1['leakage'] = str_out[0][lay,row,col]
-stream_df_sp1.to_csv(os.path.join(model_ws_simple, 'RRCA12p_STR_StressPeriod1.csv'), index=False,
-           header=['lay','row','col','SegNum','ReachNum','flow','stage','cond','sbot','stop','width','slope','rough','cond_total','leakage'])
 
 # for each stress period, summarize by segment
 start_flag = True
@@ -95,7 +122,7 @@ for sp in str_times:
 str_cbf.close()
 
 # save strem segment output
-seg_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_STR_Leakage.csv'), index=False,
+seg_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_STR_Leakage.csv'), index=False,
            header=['SegNum','leakage','kstpkper'], float_format='%5.3e')
 
 ### input data - wells
@@ -115,7 +142,7 @@ for sp in range(0,nper):
         else:
             well_data_all = well_data_all.append(well_data_sp)
 
-well_data_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_WEL_StressPeriodData.csv'), index=False,
+well_data_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_WEL_StressPeriodData.csv'), index=False,
                      header=['lay','row','col','Qw','kstpkper'], float_format='%5.3e')
 
 ### output - constant head boundary
@@ -123,7 +150,7 @@ CHB_rows = (mf.bas6.ibound[0,:,:]==-1).nonzero()[0]
 CHB_cols = (mf.bas6.ibound[0,:,:]==-1).nonzero()[1]
 
 # open cell by cell flow data
-CHB_cbf = bf.CellBudgetFile(os.path.join(model_ws_simple, 'output', modelname+'.ccf'))
+CHB_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.ccf'))
 CHB_times = CHB_cbf.get_kstpkper()
 
 # for each stress period, extract for each CHB cell
@@ -150,12 +177,12 @@ for sp in CHB_times:
 CHB_cbf.close()
 
 # save output
-CHB_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_CHB_Leakage.csv'), index=False,
+CHB_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_CHB_Leakage.csv'), index=False,
                      header=['row','col','leakage','kstpkper'], float_format='%5.3e')
 
 ### output - DRN
 # open cell by cell flow data
-DRN_cbf = bf.CellBudgetFile(os.path.join(model_ws_simple, 'output', modelname+'.dcf'))
+DRN_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.dcf'))
 #DRN_cbf.list_records()
 DRN_times = DRN_cbf.get_kstpkper()
 
@@ -191,13 +218,13 @@ for i in range(0,len(DRN_times)):
 DRN_cbf.close()
 
 # save output
-DRN_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_DRN_Leakage.csv'), index=False,
+DRN_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_DRN_Leakage.csv'), index=False,
                      header=['row','col','cond_total','elev_mean','leakage','kstpkper'], 
                      float_format='%5.3e')
 
 ### output - EVT
 # open cell by cell flow data
-EVT_cbf = bf.CellBudgetFile(os.path.join(model_ws_simple, 'output', modelname+'.ecf'))
+EVT_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.ecf'))
 #EVT_cbf.list_records()
 EVT_times = EVT_cbf.get_kstpkper()
 
@@ -231,13 +258,13 @@ for sp in EVT_times:
 EVT_cbf.close()
 
 # save output
-EVT_all.to_csv(os.path.join(model_ws_simple, 'RRCA12p_EVT_Flux.csv'), index=False,
+EVT_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_EVT_Flux.csv'), index=False,
                      header=['row','col','ET','kstpkper'], 
                      float_format='%5.3e')
 
 ### output - head and water table depth
 # Create the headfile object
-h = bf.HeadFile(os.path.join(model_ws_simple, 'output', modelname+'.head'), text='head')
+h = bf.HeadFile(os.path.join(model_ws_well, 'output', modelname+'.head'), text='head')
 
 # extract data matrix
 h.get_kstpkper()
@@ -250,32 +277,15 @@ head_end[head_end <= mf.bas6.hnoflo] = np.nan
 h.close()
 
 # head and water table depth
-np.savetxt(os.path.join(model_ws_simple, 'RRCA12p_Head-SS.txt'), head[0,:,:])
-np.savetxt(os.path.join(model_ws_simple, 'RRCA12p_Head-End.txt'), head_end[0,:,:])
+np.savetxt(os.path.join(model_ws_well, 'RRCA12p_Head-SS.txt'), head[0,:,:])
+np.savetxt(os.path.join(model_ws_well, 'RRCA12p_Head-End.txt'), head_end[0,:,:])
 
 ### budget file
-mfl = flopy.utils.MfListBudget(os.path.join(model_ws_simple, 'output', modelname+".out"))
+mfl = flopy.utils.MfListBudget(os.path.join(model_ws_well, 'output', modelname+".out"))
 df_flux, df_vol = mfl.get_dataframes()
 df_flux['kstpkper'] = str_times
-df_flux.to_csv(os.path.join(model_ws_simple, 'RRCA12p_BudgetFlux.csv'), index=False)
+df_flux.to_csv(os.path.join(model_ws_well, 'RRCA12p_BudgetFlux.csv'), index=False)
 
-### check match between flux-specific data extractions and budget file
-# STR
-STR_leakage = df_flux['STREAM_LEAKAGE_IN']-df_flux['STREAM_LEAKAGE_OUT']
-STR_budget = seg_all.groupby('kstpkper', as_index=False, sort=False).agg({'leakage': 'sum'})
-plt.plot(STR_leakage, STR_budget['leakage'], 'o')
-
-# CHB
-CHB_leakage = df_flux['CONSTANT_HEAD_IN']-df_flux['CONSTANT_HEAD_OUT']
-CHB_budget = CHB_all.groupby('kstpkper', as_index=False, sort=False).agg({'leakage': 'sum'})
-plt.plot(CHB_leakage, CHB_budget['leakage'], 'o')
-
-# DRN
-DRN_leakage = df_flux['DRAINS_IN']-df_flux['DRAINS_OUT']
-DRN_budget = DRN_all.groupby('kstpkper', as_index=False, sort=False).agg({'leakage': 'sum'})
-plt.plot(DRN_leakage, DRN_budget['leakage'], 'o')
-
-# EVT
-EVT_leakage = df_flux['ET_IN']-df_flux['ET_OUT']
-EVT_budget = EVT_all.groupby('kstpkper', as_index=False, sort=False).agg({'ET': 'sum'})
-plt.plot(EVT_leakage, EVT_budget['ET'], 'o')
+## clean up and delete unnecessary files to save space
+shutil.rmtree(os.path.join(model_ws_well, 'input_data'))
+shutil.rmtree(os.path.join(model_ws_well, 'output'))
