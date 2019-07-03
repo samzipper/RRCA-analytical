@@ -5,25 +5,25 @@ source(file.path("src", "paths+packages.R"))
 
 ## load stress period data (created using script RRCA12p_Load+Simplify+RunBaseline.py)
 wel_spd <- 
-  file.path(output_simple, "RRCA12p_WEL_StressPeriodData.csv") %>% 
+  file.path(model_ws_simple, "RRCA12p_WEL_StressPeriodData.csv") %>% 
   readr::read_csv() %>% 
   transform(Qw_acreFeetDay = 86400*Qw/43560)
 wel_spd[,c("lay", "row", "col")] <- wel_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 str_spd <- 
-  file.path(output_simple, "RRCA12p_STR_StressPeriod1.csv") %>% 
+  file.path(model_ws_simple, "RRCA12p_STR_StressPeriod1.csv") %>% 
   readr::read_csv() %>% 
   transform(cond_proportion = cond/cond_total,
             BC = "STR")
 str_spd[,c("lay", "row", "col")] <- str_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 budget_spd <- 
-  file.path(output_simple, "RRCA12p_BudgetFlux.csv") %>% 
+  file.path(model_ws_simple, "RRCA12p_BudgetFlux.csv") %>% 
   readr::read_csv()
 
 ## extract constant head boundaries from ibound
 ibound_df <-  
-  file.path("modflow", "baseline_simple", "RRCA12p_BAS6-ibound.txt") %>% 
+  file.path(model_ws_simple, "RRCA12p_BAS6-ibound.txt") %>% 
   scan %>% 
   tibble::tibble(row = rep(seq(1, RRCA12p_nrow), each = RRCA12p_ncol),
                  col = rep(seq(1, RRCA12p_ncol), time = RRCA12p_nrow),
@@ -158,21 +158,21 @@ well_str_dist <-
 well_str_df <- 
   tibble::tibble(
     WellNum = rep(wells_sf$WellNum, times = dim(well_str_dist)[2]),
-    distToStream_m = as.numeric(well_str_dist)
+    distToStream_cells = as.numeric(well_str_dist)
   ) %>% 
   # get distance to closest stream
   dplyr::group_by(WellNum) %>% 
-  dplyr::summarize(distToClosestStream_m = min(distToStream_m)) %>% 
+  dplyr::summarize(distToClosestStream_cells = min(distToStream_cells)) %>% 
   # add SegNum and other information about closest stream
   dplyr::left_join(tibble::tibble(
     WellNum = rep(wells_sf$WellNum, times = dim(well_str_dist)[2]),
-    distToStream_m = as.numeric(well_str_dist)), 
+    distToStream_cells = as.numeric(well_str_dist)), 
     SegNum = rep(str_sf$SegNum, each = dim(well_str_dist)[1]),
     ReachNum = rep(str_sf$ReachNum, each = dim(well_str_dist)[1]),
     BC = rep(str_sf$BC, each = dim(well_str_dist)[1]),
     cond = rep(str_sf$cond, each = dim(well_str_dist)[1]),
     leakage = rep(str_sf$leakage, each = dim(well_str_dist)[1]),
-    by = c("WellNum", "distToClosestStream_m" = "distToStream_m"))
+    by = c("WellNum", "distToClosestStream_cells" = "distToStream_cells"))
 
 ## load some model characteristics
 vars_load <- c("LPF-hk", "LPF-ss", "LPF-sy", "DIS-top", "DIS-botm", "BAS6-strt", "BAS6-ibound", "RCH-rech")
@@ -185,7 +185,7 @@ for (var in vars_load){
   
   # load python output
   var_vec <-   
-    file.path("modflow", "baseline_simple", paste0("RRCA12p_", var, ".txt")) %>% 
+    file.path(model_ws_simple, paste0("RRCA12p_", var, ".txt")) %>% 
     scan
   
   # add to data frame
@@ -195,39 +195,160 @@ for (var in vars_load){
 
 # load ground surface data - this is not part of MODFLOW model
 ground <- 
-  file.path(path_RRCA, "ground", "ground.avg.64") %>%
+  file.path(onedrive_ws, "ground", "ground.avg.64") %>%
   scan(skip=1)
 model_df$ground <- ground
 
 # load head at start and end
 head_SS <- 
-  file.path("modflow", "baseline_simple", "RRCA12p_Head-SS.txt") %>% 
+  file.path(model_ws_simple, "RRCA12p_Head-SS.txt") %>% 
   scan()
 model_df$head_SS <- head_SS
 
 head_end <- 
-  file.path("modflow", "baseline_simple", "RRCA12p_Head-End.txt") %>% 
+  file.path(model_ws_simple, "RRCA12p_Head-End.txt") %>% 
   scan
 model_df$head_end <- head_end
 
-# calculate transmissivity
-model_df$transmissivity_ft2s <- (model_df$top - model_df$botm)*model_df$hk
+# calculate transmissivity, water table depth
+model_df$sat_thickness <- model_df$top - model_df$botm
+model_df$transmissivity_ft2s <- model_df$sat_thickness*model_df$hk
+model_df$WTD_SS <- model_df$ground - model_df$head_SS
+model_df$WTD_end <- model_df$ground - model_df$head_end
 
 # add to well data frame
 wells_all <- 
   wells %>% 
   dplyr::left_join(well_str_df, by = "WellNum") %>% 
-  dplyr::left_join(model_df, by = c("row", "col"))
+  dplyr::left_join(model_df, by = c("row", "col")) %>% 
+  transform(logTransmissivity_ft2s = log10(transmissivity_ft2s),
+            logHk = log10(hk)) %>% 
+  subset(ibound != 0) %>%   # remove 6 wells in inactive cells
+  subset(distToClosestStream_cells > 0)  # remove wells in same cell as a BC feature (STR or CHB)
 
-ggplot() +
-  geom_raster(data = subset(model_df, ibound != 0), aes(x = col, y = row, fill = hk)) +
-  geom_point(data = wells_all, aes(x = col, y = row, color = distToClosestStream_m), shape = 21) +
-  geom_point(data = subset(wells_all, WellNum == 11638), aes(x = col, y = row), color = "red", size = 2) +
-  viridis::scale_fill_viridis(trans = "log10") +
-  NULL
+## select random sample of wells for pumping tests
+# want to select wells to test based on:
+#  - pumping rate (Qw_acreFeetDay_mean)
+#  - log transmissivity (logTransmissivity_ft2s)
+#  - storativity (ss)
+#  - distance to stream (distToClosestStream_cells)
+#  - water table depth (WTD_SS)
+#  - log hydraulic conductivity (logHk)
+#  - saturated thickness (sat_thickness)
 
+# calculate 1st and 99th percentile for each variable
+Qw_range <- quantile(wells_all$Qw_acreFeetDay_mean, c(0.01, 0.99))
+logT_range <- quantile(wells_all$logTransmissivity_ft2s, c(0.01, 0.99))
+ss_range <- quantile(wells_all$ss, c(0.01, 0.99))
+dist_range <- quantile(wells_all$distToClosestStream_cells, c(0.01, 0.99))
+WTD_range <- quantile(wells_all$WTD_SS, c(0.01, 0.99))
+logHk_range <- quantile(wells_all$logHk, c(0.01, 0.99))
+b_range <- quantile(wells_all$sat_thickness, c(0.01, 0.99))
 
-## inspect model
+# normalization function
+fnorm <- function(x, range){
+  (x - min(range))/(max(range) - min(range))
+}
+
+# make a data frame with everything normalized to 1st and 99th percentiles
+wells_all_norm <- 
+  data.frame(WellNum = wells_all$WellNum,
+             Qw_acreFeetDay_mean = fnorm(wells_all$Qw_acreFeetDay_mean, Qw_range),
+             logTransmissivity_ft2s = fnorm(wells_all$logTransmissivity_ft2s, logT_range),
+             ss = fnorm(wells_all$ss, ss_range),
+             distToClosestStream_cells = fnorm(wells_all$distToClosestStream_cells, dist_range),
+             WTD_SS = fnorm(wells_all$WTD_SS, WTD_range),
+             logHk = fnorm(wells_all$logHk, logHk_range),
+             sat_thickness = fnorm(wells_all$sat_thickness, b_range)) %>% 
+  subset(Qw_acreFeetDay_mean >= 0 & Qw_acreFeetDay_mean <= 1 &
+           logTransmissivity_ft2s >= 0 & logTransmissivity_ft2s <= 1 &
+           ss >= 0 & ss <= 1 &
+           distToClosestStream_cells >= 0 & distToClosestStream_cells <= 1 &
+           WTD_SS >= 0 & WTD_SS <= 1 &
+           logHk >= 0 & logHk <= 1 &
+           sat_thickness >= 0 & sat_thickness <= 1)
+
+# subset wells_all based on percentile
+wells_all <- subset(wells_all, WellNum %in% wells_all_norm$WellNum)
+
+# random sample of wells
+n_wells <- 500
+set.seed(n_wells)
+i_sample <- base::sample(seq(1, length(wells_all$WellNum)), 
+                         size = n_wells)
+wells_all$sample_random <- FALSE
+wells_all$sample_random[i_sample] <- TRUE
+
+# plot random sample distribution of all variables
+wells_all %>% 
+  dplyr::select(WellNum, sample_random, Qw_acreFeetDay_mean, logTransmissivity_ft2s, ss, distToClosestStream_cells, WTD_SS, logHk, sat_thickness) %>% 
+  reshape2::melt(id = c("WellNum", "sample_random")) %>%
+  ggplot() +
+  geom_histogram(aes(x = value, fill = sample_random)) +
+  facet_wrap(~ variable, scales = "free", nrow = 2) +
+  scale_y_continuous(name = "Number of Wells") +
+  theme(legend.position = c(1,0),
+        legend.justification = c(1,0))
+
+## sample using latin hypercube approach
+set.seed(n_wells)
+lhs_mat <- lhs::randomLHS(n = n_wells, k = 7)  # 7 parameters
+
+wells_mat <- 
+  wells_all_norm %>% 
+  dplyr::select(-WellNum) %>% 
+  as.matrix()
+
+# for each row in sample, find closest row in wells_mat
+euc_dist_func <- function(p, q){
+  # p and q are vectors of equal length
+  (sum(((p - q)^2))^0.5)
+}
+well_sample_lhs <- integer(0)
+replace <- T  # can wells be identified multiple times (T), or should they be removed (F)? 
+# T will give a closer approximation to uniform distribution, but result in fewer unique wells than n_wells
+for (s in 1:n_wells){
+  if (replace){
+    euc_dist <- apply(wells_mat, MARGIN=1, FUN=euc_dist_func, lhs_mat[s,])
+    well_min_dist <- wells_all_norm$WellNum[which.min(euc_dist)]
+  } else {
+    # figure out what wells haven't been selected yet
+    WellNums_remaining <- wells_all_norm$WellNum[!(wells_all_norm$WellNum %in% well_sample_lhs)]
+    i_remaining <- which(wells_all_norm$WellNum %in% WellNums_remaining)
+    
+    # subset normalized value matrix, calculate distance
+    wells_mat_remaining <- wells_mat[i_remaining, ]
+    
+    euc_dist <- apply(wells_mat_remaining, MARGIN=1, FUN=euc_dist_func, lhs_mat[s,])
+    well_min_dist <- wells_all_norm$WellNum[i_remaining][which.min(euc_dist)]
+  }
+  
+  well_sample_lhs <- c(well_sample_lhs, well_min_dist)
+  
+  
+  print(paste0(s, " complete"))
+}
+
+wells_all$sample_lhs <- FALSE
+wells_all$sample_lhs[wells_all$WellNum %in% well_sample_lhs] <- TRUE
+
+# plot LHS sample distribution of all variables
+wells_all %>% 
+  dplyr::select(WellNum, sample_lhs, Qw_acreFeetDay_mean, logTransmissivity_ft2s, ss, distToClosestStream_cells, WTD_SS, logHk, sat_thickness) %>% 
+  reshape2::melt(id = c("WellNum", "sample_lhs")) %>%
+  ggplot() +
+  geom_histogram(aes(x = value, fill = sample_lhs)) +
+  facet_wrap(~ variable, scales = "free", nrow = 2) +
+  scale_y_continuous(name = "Number of Wells") +
+  theme(legend.position = c(1,0),
+        legend.justification = c(1,0))
+
+## save summary of wells
+wells_all %>% 
+  dplyr::select(-logHk, -logTransmissivity_ft2s, -sample_random) %>% 
+  readr::write_csv(file.path("results", "RRCA12p_03_WellSample.csv"))
+
+## inspect model via comparison with documentation
 # land surface - should match http://www.republicanrivercompact.org/v12p/html/ground.html
 ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=ground)) + 
   geom_raster() +
@@ -272,16 +393,16 @@ ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=rech*86400)) +
   scale_fill_gradientn(trans="log10", colors = c("purple", "deeppink", "blue", "cyan", "green", "yellow", "red"))
 
 # SS WTD - should match http://www.republicanrivercompact.org/v12p/html/dtw12p-1.html
-model_df$wtd_SS <- cut((model_df$ground-model_df$head_SS), breaks=c(-500,-50,-30,-20,-10,-1,1,50,100,150,200,300,500))
-ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=wtd_SS)) + 
+model_df$WTD_SS_cut <- cut(model_df$WTD_SS, breaks=c(-500,-50,-30,-20,-10,-1,1,50,100,150,200,300,500))
+ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=WTD_SS_cut)) + 
   geom_raster() +
   scale_y_reverse() +
   scale_fill_manual(values=rev(c("grey25", "red","orange","yellow","limegreen","forestgreen","grey50",
                                  "cyan","cornflowerblue","blue","deeppink2","purple")))
 
 # 2000 wtd - should match http://www.republicanrivercompact.org/v12p/html/dtw12p-997.html
-model_df$wtd_end <- cut((model_df$ground-model_df$head_end), breaks=c(-500,-50,-30,-20,-10,-1,1,50,100,150,200,300,500))
-ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=wtd_end)) + 
+model_df$WTD_end_cut <- cut(model_df$WTD_end, breaks=c(-500,-50,-30,-20,-10,-1,1,50,100,150,200,300,500))
+ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=WTD_end_cut)) + 
   geom_raster() +
   scale_y_reverse() +
   scale_fill_manual(values=rev(c("grey25", "red","orange","yellow","limegreen","forestgreen","grey50",
@@ -293,40 +414,4 @@ ggplot(subset(model_df, ibound != 0), aes(x=col, y=row, fill=ddn)) +
   geom_raster() +
   scale_y_reverse() +
   scale_fill_manual(values=rev(c("black", "red","orange","yellow","limegreen","forestgreen","grey50",
-                             "cyan","cornflowerblue","blue","deeppink2","purple","brown")))
-
-
-
-
-
-
-wells <- dplyr::left_join(wells, well_str_df, by="WellNum")
-
-# random sample of wells considering location (row/col), pumping rate, pumping duration, and distance to stream
-n_wells <- 100
-set.seed(n_wells)
-wells_sample <-
-  wells %>% 
-  dplyr::tbl_df() %>% 
-  dplyr::sample_n(n_wells)
-
-
-
-
-
-
-ggplot() +
-  geom_point(data=wells, aes(x=col, y=row), shape=21, alpha=0.25, fill=NA) +
-  geom_point(data=wells_sample, aes(x=col, y=row), color="red") +
-  geom_raster(data=str_spd, aes(x=col, y=row, fill=leakage)) +
-  scale_fill_gradient2()
-
-ggplot(wells, aes(x=Qw_acreFeetDay_mean)) +
-  geom_histogram(binwidth=1)
-
-## number of stream reaches per segment
-str_spd %>% 
-  dplyr::group_by(SegNum) %>% 
-  dplyr::summarize(nreach = max(ReachNum)) %>% 
-  ggplot(aes(x=nreach)) +
-  geom_histogram(binwidth=1)
+                                 "cyan","cornflowerblue","blue","deeppink2","purple","brown")))
