@@ -345,7 +345,20 @@ wells_all %>%
 
 ## save summary of wells
 wells_all %>% 
-  dplyr::select(-logHk, -logTransmissivity_ft2s, -sample_random) %>% 
+  # convert to metric units
+  transform(hk_ms = hk*0.3048,
+            distToClosestStream_m = distToClosestStream_cells*5280*0.3048,
+            top_m = top*0.3048,
+            botm_m = botm*0.3048,
+            strt_m = strt*0.3048,
+            rech_ms = rech*0.3048,
+            ground_m = ground*0.3048,
+            head_SS_m = head_SS*0.3048,
+            head_end_m = head_end*0.3048,
+            Qw_m3d_mean = Qw_acreFeetDay_mean*1233.48) %>% 
+  dplyr::select(WellNum, row, col, yr_pump_start, yr_pump_end, Qw_m3d_mean, hk_ms,
+                ss, sy, distToClosestStream_m, ground_m, top_m, botm_m, strt_m, rech_ms,
+                head_SS_m, head_end_m, sample_lhs) %>% 
   readr::write_csv(file.path("results", "RRCA12p_03_WellSample.csv"))
 
 ## inspect model via comparison with documentation
