@@ -166,13 +166,19 @@ well_str_df <-
   # add SegNum and other information about closest stream
   dplyr::left_join(tibble::tibble(
     WellNum = rep(wells_sf$WellNum, times = dim(well_str_dist)[2]),
-    distToStream_cells = as.numeric(well_str_dist)), 
+    distToStream_cells = as.numeric(well_str_dist), 
     SegNum = rep(str_sf$SegNum, each = dim(well_str_dist)[1]),
     ReachNum = rep(str_sf$ReachNum, each = dim(well_str_dist)[1]),
     BC = rep(str_sf$BC, each = dim(well_str_dist)[1]),
     cond = rep(str_sf$cond, each = dim(well_str_dist)[1]),
-    leakage = rep(str_sf$leakage, each = dim(well_str_dist)[1]),
-    by = c("WellNum", "distToClosestStream_cells" = "distToStream_cells"))
+    leakage = rep(str_sf$leakage, each = dim(well_str_dist)[1])),
+    by = c("WellNum", "distToClosestStream_cells" = "distToStream_cells")) %>% 
+  # some well-stream pairs have same distance; choose whichever has higher conductance
+  group_by(WellNum) %>% 
+  filter(cond == max(cond))
+
+# there are still a few wells with multiple points (for example because conductance is identical); just choose one
+well_str_df <- well_str_df[!duplicated(well_str_df$WellNum), ]
 
 ## load some model characteristics
 vars_load <- c("LPF-hk", "LPF-ss", "LPF-sy", "DIS-top", "DIS-botm", "BAS6-strt", "BAS6-ibound", "RCH-rech")
@@ -272,7 +278,7 @@ wells_all_norm <-
 wells_all <- subset(wells_all, WellNum %in% wells_all_norm$WellNum)
 
 # random sample of wells
-n_wells <- 500
+n_wells <- 250
 set.seed(n_wells)
 i_sample <- base::sample(seq(1, length(wells_all$WellNum)), 
                          size = n_wells)
@@ -305,7 +311,7 @@ euc_dist_func <- function(p, q){
   (sum(((p - q)^2))^0.5)
 }
 well_sample_lhs <- integer(0)
-replace <- T  # can wells be identified multiple times (T), or should they be removed (F)? 
+replace <- T  # can wells be matched multiple times (T), or should they be removed once matched (F)? 
 # T will give a closer approximation to uniform distribution, but result in fewer unique wells than n_wells
 for (s in 1:n_wells){
   if (replace){
