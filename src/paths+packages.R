@@ -14,6 +14,7 @@ if (Sys.info()["nodename"] == "GSAS-PC5"){
   onedrive_ws <- "C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
 }
 model_ws_simple <- file.path(onedrive_ws, "baseline_simple")
+model_ws_wells  <- file.path(onedrive_ws, "wells")
 
 # some useful info about the RRCA12p model
 RRCA12p_nrow <- 165

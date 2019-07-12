@@ -21,8 +21,8 @@ model_ws_simple = os.path.join(onedrive_ws, 'baseline_simple')
 output_path = os.path.join('modflow', 'baseline_simple')
 
 ## Load model
-mf = flopy.modflow.Modflow.load(modelname+'.nam', model_ws=model_ws_simple, 
-        exe_name=path2mf, version=modflow_v, forgive=True)
+mf = flopy.modflow.Modflow.load(modelname+'.nam', model_ws=model_ws_simple,
+                                exe_name=path2mf, version=modflow_v, forgive=True)
 nper = mf.dis.nper
 
 ## change model workspace
@@ -51,12 +51,6 @@ col = stream_data['j'].tolist()
 # CHB locations
 CHB_rows = (mf.bas6.ibound[0,:,:]==-1).nonzero()[0]
 CHB_cols = (mf.bas6.ibound[0,:,:]==-1).nonzero()[1]
-
-# baseline WEL input
-baseline = flopy.modflow.Modflow.load(modelname+'.nam', model_ws=model_ws_simple,
-                                      exe_name=path2mf, version=modflow_v, forgive=True,
-                                      load_only='wel')
-wel_baseline = baseline.wel
 
 ## load CSV file with well sample to turn off (produced by script RRCA12p_03_)
 wells_all = pd.read_csv(os.path.join('results', 'RRCA12p_03_WellSample.csv'))
@@ -146,7 +140,7 @@ for w in range(0, n_wells):
     ## output - constant head boundary
     try:
         # open cell by cell flow data
-        CHB_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output2', modelname+'.ccf'))
+        CHB_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.ccf'))
         CHB_times = CHB_cbf.get_kstpkper()
         
         # for each stress period, extract for each CHB cell
@@ -225,9 +219,18 @@ for w in range(0, n_wells):
     except:
         print('Well '+str(WellNum)+' LST postprocessing error')
     
-    ### reload baseline WEL file 
+    ## reload baseline WEL file 
     mf.remove_package('WEL')  # remove modified well
-    mf.add_package(wel_baseline)
+    baseline = flopy.modflow.Modflow.load(modelname+'.nam', model_ws=model_ws_simple,
+                                          exe_name=path2mf, version=modflow_v, forgive=True,
+                                          load_only='wel')  #  load baseline model
+    baseline.change_model_ws(new_pth = model_ws_well)
+    wel_baseline = baseline.wel
+    mf.add_package(wel_baseline) # replace altered WEL with baseline WEL
+    
+    ## delete raw output files to ensure they are rewritten
+    shutil.rmtree(os.path.join(model_ws_well, 'output'))
+    os.makedirs(os.path.join(model_ws_well, 'output'))
     
     ## status update
     print('Well '+str(w)+' of '+str(n_wells)+' complete, '+str(datetime.datetime.now()))

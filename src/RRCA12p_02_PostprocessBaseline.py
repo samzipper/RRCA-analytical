@@ -11,8 +11,8 @@ import pandas as pd
 ## set up your model
 modelname = 'RRCA12p'
 modflow_v = 'mf2k'
-path2mf = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
-onedrive_ws = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
+path2mf = 'C:/Users/gsas/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
+onedrive_ws = 'C:/Users/gsas/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
 model_ws_simple = os.path.join(onedrive_ws, 'baseline_simple')
 
 ## Load model
