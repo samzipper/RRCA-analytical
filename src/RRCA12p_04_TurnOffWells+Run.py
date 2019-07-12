@@ -13,8 +13,8 @@ import datetime
 ## set up your model
 modelname = 'RRCA12p'
 modflow_v = 'mf2k'
-path2mf = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
-onedrive_ws = 'C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
+path2mf = 'C:/Users/gsas/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
+onedrive_ws = 'C:/Users/gsas/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
 
 ## paths for baseline model
 model_ws_simple = os.path.join(onedrive_ws, 'baseline_simple')
@@ -87,140 +87,147 @@ for w in range(0, n_wells):
             #print('Well '+str(WellNum)+' disabled for sp '+str(sp))
         else:
             raise ValueError('Well '+str(WellNum)+' index length error for sp '+str(sp))
-            
-    ## set up model
-    mf.write_input(SelPackList=['WEL']) # write WEL file
     
-    # copy template NAM file that refers back to baseline_simple for all other inputs
-    shutil.copy2(os.path.join(model_ws_simple, modelname+'_well_template.nam'), os.path.join(model_ws_well, modelname+'.nam'))
-    
-    ## run model
-    success, mfoutput = mf.run_model(silent=True)
-    if not success:
-        raise Exception('MODFLOW did not terminate normally.')
+    try:
+        ## set up model
+        mf.write_input(SelPackList=['WEL']) # write WEL file
+        
+        # copy template NAM file that refers back to baseline_simple for all other inputs
+        shutil.copy2(os.path.join(model_ws_simple, modelname+'_well_template.nam'), os.path.join(model_ws_well, modelname+'.nam'))
+        
+        ## run model
+        success, mfoutput = mf.run_model(silent=True)
+        if not success:
+            raise Exception('MODFLOW did not terminate normally.')
+    except:
+        print('Well '+str(WellNum)+' model run error')
     
     ### postprocessing
-    ### output - stream leakage
-    # open cell by cell flow data
-    str_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.scf'))
-    str_out = str_cbf.get_data(text='  STREAM LEAKAGE', full3D=True)
-    str_times = str_cbf.get_kstpkper()
-    
-    # for each stress period, summarize by segment
-    start_flag = True
-    for sp in str_times:
-        # load cell flow for this timestep
-        str_sp = str_cbf.get_data(kstpkper=sp, text='  STREAM LEAKAGE', full3D=True)[0]
+    ## output - stream leakage
+    try:
+        # open cell by cell flow data
+        str_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.scf'))
+        str_out = str_cbf.get_data(text='  STREAM LEAKAGE', full3D=True)
+        str_times = str_cbf.get_kstpkper()
         
-        # convert to data frame
-        stream_df_sp = pd.DataFrame(stream_data.copy())
-        
-        # extract leakage data
-        #stream_df_sp['leakage'] = str_sp[stream_df_sp['k'],stream_df_sp['i'],stream_df_sp['j']]
-        stream_df_sp['leakage'] = str_sp[lay,row,col]*(stream_df_sp['cond']/stream_df_sp['cond_total'])
-        
-        # summarize by segment
-        seg_sp = stream_df_sp.groupby('segment', as_index=False).agg({'leakage': 'sum'})
-        seg_sp['kstpkper'] = str(sp)
-                
-        ## add to overall data frame
-        if (start_flag):
-            seg_all = seg_sp
-            start_flag = False
-        else:
-            seg_all = seg_all.append(seg_sp)
-                    
-        ## status update
-        #print(str(sp) + ' complete')
-    
-    str_cbf.close()
-    
-    # save strem segment output
-    seg_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_STR_Leakage.csv'), index=False,
-                   header=['SegNum','leakage','kstpkper'], float_format='%5.3e')
-    
-    ### output - constant head boundary
-    # open cell by cell flow data
-    CHB_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.ccf'))
-    CHB_times = CHB_cbf.get_kstpkper()
-    
-    # for each stress period, extract for each CHB cell
-    start_flag = True
-    for sp in CHB_times:
-        # load cell flow for this timestep
-        CHB_sp = CHB_cbf.get_data(kstpkper=sp, text='   CONSTANT HEAD', full3D=True)[0]
-        
-        # convert to data frame
-        CHB_df_sp = pd.DataFrame({'row': CHB_rows, 'col': CHB_cols, 
-                                  'leakage': CHB_sp[0, CHB_rows, CHB_cols],
-                                  'kstpkper': str(sp)})
-        
-        ## add to overall data frame
-        if (start_flag):
-            CHB_all = CHB_df_sp
-            start_flag = False
-        else:
-            CHB_all = CHB_all.append(CHB_df_sp)
+        # for each stress period, summarize by segment
+        start_flag = True
+        for sp in str_times:
+            # load cell flow for this timestep
+            str_sp = str_cbf.get_data(kstpkper=sp, text='  STREAM LEAKAGE', full3D=True)[0]
             
-        ## status update
-        #print('CHB ' + str(sp) + ' complete')
-    
-    CHB_cbf.close()
-    
-    # save output
-    CHB_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_CHB_Leakage.csv'), index=False,
-                   header=['row','col','leakage','kstpkper'], float_format='%5.3e')
-    
-    ### output - DRN
-    # open cell by cell flow data
-    DRN_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.dcf'))
-    #DRN_cbf.list_records()
-    DRN_times = DRN_cbf.get_kstpkper()
-    
-    # for each stress period, summarize by segment
-    start_flag = True
-    for i in range(0,len(DRN_times)):
-        sp = DRN_times[i]
-        
-        # extract active drains for this stress period
-        DRN_data = pd.DataFrame(mf.drn.stress_period_data[i])
-        DRN_index_summary = DRN_data.groupby(['i', 'j'], as_index=False).agg({'cond': 'sum', 'elev': 'mean'}).rename(index=str, columns={"cond": "cond_total", "elev": "elev_mean"})
-    
-        # load cell flow for this timestep
-        DRN_sp = DRN_cbf.get_data(kstpkper=sp, text='          DRAINS', full3D=True)[0]
-        
-        # convert to data frame
-        DRN_df_sp = pd.DataFrame(DRN_index_summary.copy())
-        
-        # extract leakage data
-        DRN_df_sp['leakage'] = DRN_sp[0,DRN_index_summary['i'].tolist(),DRN_index_summary['j'].tolist()]
-        DRN_df_sp['kstpkper'] = str(sp)
-                
-        ## add to overall data frame
-        if (start_flag):
-            DRN_all = DRN_df_sp
-            start_flag = False
-        else:
-            DRN_all = DRN_all.append(DRN_df_sp)
+            # convert to data frame
+            stream_df_sp = pd.DataFrame(stream_data.copy())
+            
+            # extract leakage data
+            #stream_df_sp['leakage'] = str_sp[stream_df_sp['k'],stream_df_sp['i'],stream_df_sp['j']]
+            stream_df_sp['leakage'] = str_sp[lay,row,col]*(stream_df_sp['cond']/stream_df_sp['cond_total'])
+            
+            # summarize by segment
+            seg_sp = stream_df_sp.groupby('segment', as_index=False).agg({'leakage': 'sum'})
+            seg_sp['kstpkper'] = str(sp)
                     
-        ## status update
-        #print('DRN ' + str(sp) + ' complete')
+            # add to overall data frame
+            if (start_flag):
+                seg_all = seg_sp
+                start_flag = False
+            else:
+                seg_all = seg_all.append(seg_sp)
+        
+        str_cbf.close()
+        
+        # save stream segment output
+        seg_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_STR_Leakage.csv'), index=False,
+                       header=['SegNum','leakage','kstpkper'], float_format='%5.3e')
+    except:
+        print('Well '+str(WellNum)+' STR postprocessing error')
+
     
-    DRN_cbf.close()
+    ## output - constant head boundary
+    try:
+        # open cell by cell flow data
+        CHB_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output2', modelname+'.ccf'))
+        CHB_times = CHB_cbf.get_kstpkper()
+        
+        # for each stress period, extract for each CHB cell
+        start_flag = True
+        for sp in CHB_times:
+            # load cell flow for this timestep
+            CHB_sp = CHB_cbf.get_data(kstpkper=sp, text='   CONSTANT HEAD', full3D=True)[0]
+            
+            # convert to data frame
+            CHB_df_sp = pd.DataFrame({'row': CHB_rows, 'col': CHB_cols, 
+                                      'leakage': CHB_sp[0, CHB_rows, CHB_cols],
+                                      'kstpkper': str(sp)})
+            
+            # add to overall data frame
+            if (start_flag):
+                CHB_all = CHB_df_sp
+                start_flag = False
+            else:
+                CHB_all = CHB_all.append(CHB_df_sp)
+        
+        CHB_cbf.close()
+        
+        # save output
+        CHB_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_CHB_Leakage.csv'), index=False,
+                       header=['row','col','leakage','kstpkper'], float_format='%5.3e')
+    except:
+        print('Well '+str(WellNum)+' CHB postprocessing error')
     
-    # save output
-    DRN_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_DRN_Leakage.csv'), index=False,
-                   header=['row','col','cond_total','elev_mean','leakage','kstpkper'], float_format='%5.3e')
+    ## output - DRN
+    try:
+        # open cell by cell flow data
+        DRN_cbf = bf.CellBudgetFile(os.path.join(model_ws_well, 'output', modelname+'.dcf'))
+        #DRN_cbf.list_records()
+        DRN_times = DRN_cbf.get_kstpkper()
+        
+        # for each stress period, summarize by segment
+        start_flag = True
+        for i in range(0,len(DRN_times)):
+            sp = DRN_times[i]
+            
+            # extract active drains for this stress period
+            DRN_data = pd.DataFrame(mf.drn.stress_period_data[i])
+            DRN_index_summary = DRN_data.groupby(['i', 'j'], as_index=False).agg({'cond': 'sum', 'elev': 'mean'}).rename(index=str, columns={"cond": "cond_total", "elev": "elev_mean"})
+        
+            # load cell flow for this timestep
+            DRN_sp = DRN_cbf.get_data(kstpkper=sp, text='          DRAINS', full3D=True)[0]
+            
+            # convert to data frame
+            DRN_df_sp = pd.DataFrame(DRN_index_summary.copy())
+            
+            # extract leakage data
+            DRN_df_sp['leakage'] = DRN_sp[0,DRN_index_summary['i'].tolist(),DRN_index_summary['j'].tolist()]
+            DRN_df_sp['kstpkper'] = str(sp)
+                    
+            # add to overall data frame
+            if (start_flag):
+                DRN_all = DRN_df_sp
+                start_flag = False
+            else:
+                DRN_all = DRN_all.append(DRN_df_sp)
+        
+        DRN_cbf.close()
+        
+        # save output
+        DRN_all.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_DRN_Leakage.csv'), index=False,
+                       header=['row','col','cond_total','elev_mean','leakage','kstpkper'], float_format='%5.3e')
+    except:
+        print('Well '+str(WellNum)+' DRN postprocessing error')
     
-    ### budget file
-    mfl = flopy.utils.MfListBudget(os.path.join(model_ws_well, 'output', modelname+".out"))
-    df_flux, df_vol = mfl.get_dataframes()
-    df_flux['kstpkper'] = str_times
-    df_flux.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_BudgetFlux.csv'), index=False)
+    ## budget file
+    try:
+        mfl = flopy.utils.MfListBudget(os.path.join(model_ws_well, 'output', modelname+".out"))
+        df_flux, df_vol = mfl.get_dataframes()
+        df_flux['kstpkper'] = str_times
+        df_flux.to_csv(os.path.join(model_ws_well, 'RRCA12p_Well'+str(WellNum)+'_BudgetFlux.csv'), index=False)
+    except:
+        print('Well '+str(WellNum)+' LST postprocessing error')
     
     ### reload baseline WEL file 
     mf.remove_package('WEL')  # remove modified well
     mf.add_package(wel_baseline)
     
     ## status update
-    print('Well'+str(WellNum)+' complete, '+str(datetime.datetime.now()))
+    print('Well '+str(w)+' of '+str(n_wells)+' complete, '+str(datetime.datetime.now()))
