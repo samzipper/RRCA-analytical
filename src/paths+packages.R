@@ -8,12 +8,25 @@ library(lubridate)
 
 # path to folder on computer where large RRCA model input and output files live
 #  these are version RRCA12p downloaded from http://www.republicanrivercompact.org/v12p/html/ch00.html
-onedrive_ws <- "C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
+if (Sys.info()["nodename"] == "GSAS-PC5"){
+  onedrive_ws <- "C:/Users/gsas/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
+} else {
+  onedrive_ws <- "C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
+}
 model_ws_simple <- file.path(onedrive_ws, "baseline_simple")
 
 # some useful info about the RRCA12p model
 RRCA12p_nrow <- 165
 RRCA12p_ncol <- 326
+
+## color palettes
+# categorical color palette from https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
+col.cat.grn <- "#3cb44b"   # green
+col.cat.yel <- "#ffe119"   # yellow
+col.cat.org <- "#f58231"   # orange
+col.cat.red <- "#e6194b"   # red
+col.cat.blu <- "#0082c8"   # blue
+col.gray <- "gray65"       # gray for annotation lines, etc
 
 ## ggplot theme
 windowsFonts(Arial=windowsFont("TT Arial"))

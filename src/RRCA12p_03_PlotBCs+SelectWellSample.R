@@ -30,7 +30,7 @@ ibound_df <-
                  ibound = .)
 
 # split CHB into segments
-# script needs to be run in this specific order
+# script needs to be run in this specific order - CHB after STR, followed by this code block
 CHB_SegNum_start <- max(str_spd$SegNum)
 
 ibound_df$SegNum <- 0
@@ -64,6 +64,76 @@ ibound_df <-
             leakage = 0,
             cond_proportion = 0,
             BC = "CHB")
+
+## figure out where drains are
+drn_spd <- 
+  file.path(model_ws_simple, "RRCA12p_DRN_Leakage.csv") %>% 
+  readr::read_csv()
+drn_spd[,c("row", "col")] <- drn_spd[,c("row", "col")]+1  # python has 0-based indexing
+
+drn_df <- 
+  drn_spd %>% 
+  group_by(row, col) %>% 
+  summarize(leakage_mean = mean(leakage),
+            elev_mean = mean(elev_mean),
+            cond_mean = mean(cond_total)) %>% 
+  # remove drains that don't ever have any leakage
+  subset(leakage_mean < 0)
+
+# add SegNum to drains
+# script needs to be run in this specific order - DRN after CHB, followed by this code block
+DRN_SegNum_start <- max(ibound_df$SegNum)
+drn_df$SegNum <- NA
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 110 & drn_df$col < 50] <- CHB_SegNum_start + 1
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 100] <- CHB_SegNum_start + 2
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 175] <- CHB_SegNum_start + 3
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 225] <- CHB_SegNum_start + 4
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50] <- CHB_SegNum_start + 5
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 75] <- CHB_SegNum_start + 6
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 150] <- CHB_SegNum_start + 7
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 198] <- CHB_SegNum_start + 8
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 154] <- CHB_SegNum_start + 9
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 143] <- CHB_SegNum_start + 10
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 134] <- CHB_SegNum_start + 11
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 132 & drn_df$col > 225] <- CHB_SegNum_start + 11
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 126] <- CHB_SegNum_start + 12
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 112] <- CHB_SegNum_start + 13
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 108] <- CHB_SegNum_start + 14
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 90] <- CHB_SegNum_start + 15
+ggplot(drn_df, aes(x = col, y = row, fill = factor(SegNum))) + geom_tile()
+
+# add columns to match up with 
+drn_df <- 
+  drn_df %>% 
+  transform(lay = 1,
+            ReachNum = 0,
+            stage = 0,
+            flow = 0,
+            sbot = elev_mean,
+            stop = 0,
+            width = 0,
+            slope = 0,
+            rough = 0,
+            leakage = leakage_mean,
+            cond = cond_mean,
+            cond_total = cond_mean,
+            cond_proportion = cond_mean/cond_mean,
+            BC = "DRN") %>% 
+  dplyr::select(-leakage_mean, -elev_mean, -cond_mean)
+
+## figure out where phreatophytes are
+evt_spd <-
+  file.path(model_ws_simple, "RRCA12p_EVT_Flux.csv") %>% 
+  readr::read_csv()
+evt_spd[,c("row", "col")] <- evt_spd[,c("row", "col")]+1  # python has 0-based indexing
+
+evt_df <- 
+  evt_spd %>% 
+  group_by(row, col) %>% 
+  summarize(ET_mean = mean(ET)) %>% 
+  # remove cells that don't ever have any ET
+  subset(ET_mean < 0)
+ggplot(evt_df, aes(x = col, y = row, fill = ET_mean)) + geom_tile()
 
 ## calculate year/month/mid-month date for each stress period
 # get stress periods from kstpkper
@@ -149,36 +219,61 @@ wells <-
 wells_sf <- 
   wells %>% 
   sf::st_as_sf(., coords=c("col", "row"), crs="+init=epsg:26714")
-str_sf <- 
-  rbind(str_spd, ibound_df) %>% 
+surfwat <- 
+  rbind(str_spd, ibound_df, drn_df) %>% 
   sf::st_as_sf(., coords=c("col", "row"), crs="+init=epsg:26714")
 
-well_str_dist <- 
-  sf::st_distance(x=wells_sf, y=str_sf)
-well_str_df <- 
+well_surfwat_dist <- 
+  sf::st_distance(x=wells_sf, y=surfwat)
+well_surfwat_df <- 
   tibble::tibble(
-    WellNum = rep(wells_sf$WellNum, times = dim(well_str_dist)[2]),
-    distToStream_cells = as.numeric(well_str_dist)
+    WellNum = rep(wells_sf$WellNum, times = dim(well_surfwat_dist)[2]),
+    distToSurfwat_cells = as.numeric(well_surfwat_dist)
   ) %>% 
   # get distance to closest stream
   dplyr::group_by(WellNum) %>% 
-  dplyr::summarize(distToClosestStream_cells = min(distToStream_cells)) %>% 
+  dplyr::summarize(distToClosestSurfwat_cells = min(distToSurfwat_cells)) %>% 
   # add SegNum and other information about closest stream
   dplyr::left_join(tibble::tibble(
-    WellNum = rep(wells_sf$WellNum, times = dim(well_str_dist)[2]),
-    distToStream_cells = as.numeric(well_str_dist), 
-    SegNum = rep(str_sf$SegNum, each = dim(well_str_dist)[1]),
-    ReachNum = rep(str_sf$ReachNum, each = dim(well_str_dist)[1]),
-    BC = rep(str_sf$BC, each = dim(well_str_dist)[1]),
-    cond = rep(str_sf$cond, each = dim(well_str_dist)[1]),
-    leakage = rep(str_sf$leakage, each = dim(well_str_dist)[1])),
-    by = c("WellNum", "distToClosestStream_cells" = "distToStream_cells")) %>% 
+    WellNum = rep(wells_sf$WellNum, times = dim(well_surfwat_dist)[2]),
+    distToSurfwat_cells = as.numeric(well_surfwat_dist), 
+    SegNum = rep(surfwat$SegNum, each = dim(well_surfwat_dist)[1]),
+    ReachNum = rep(surfwat$ReachNum, each = dim(well_surfwat_dist)[1]),
+    BC = rep(surfwat$BC, each = dim(well_surfwat_dist)[1]),
+    cond = rep(surfwat$cond, each = dim(well_surfwat_dist)[1]),
+    leakage = rep(surfwat$leakage, each = dim(well_surfwat_dist)[1])),
+    by = c("WellNum", "distToClosestSurfwat_cells" = "distToSurfwat_cells")) %>% 
   # some well-stream pairs have same distance; choose whichever has higher conductance
   group_by(WellNum) %>% 
   filter(cond == max(cond))
 
 # there are still a few wells with multiple points (for example because conductance is identical); just choose one
-well_str_df <- well_str_df[!duplicated(well_str_df$WellNum), ]
+well_surfwat_df <- well_surfwat_df[!duplicated(well_surfwat_df$WellNum), ]
+
+## calculate distance to closest phreatophytic ET
+evt_sf <- 
+  evt_df %>% 
+  sf::st_as_sf(., coords=c("col", "row"), crs="+init=epsg:26714")
+
+well_evt_dist <- 
+  sf::st_distance(x=wells_sf, y=evt_sf)
+well_evt_df <- 
+  tibble::tibble(
+    WellNum = rep(wells_sf$WellNum, times = dim(well_evt_dist)[2]),
+    distToEVT_cells = as.numeric(well_evt_dist)
+  ) %>% 
+  # get distance to closest stream
+  dplyr::group_by(WellNum) %>% 
+  dplyr::summarize(distToClosestEVT_cells = min(distToEVT_cells)) %>% 
+  # add SegNum and other information about closest stream
+  dplyr::left_join(tibble::tibble(
+    WellNum = rep(wells_sf$WellNum, times = dim(well_evt_dist)[2]),
+    distToEVT_cells = as.numeric(well_evt_dist), 
+    ET_mean = rep(evt_sf$ET_mean, each = dim(well_evt_dist)[1])),
+    by = c("WellNum", "distToClosestEVT_cells" = "distToEVT_cells")) %>% 
+  # some well-stream pairs have same distance; choose whichever has greater ET (more ET = negative flux)
+  group_by(WellNum) %>% 
+  filter(ET_mean == max(ET_mean))
 
 ## load some model characteristics
 vars_load <- c("LPF-hk", "LPF-ss", "LPF-sy", "DIS-top", "DIS-botm", "BAS6-strt", "BAS6-ibound", "RCH-rech")
@@ -225,19 +320,21 @@ model_df$WTD_end <- model_df$ground - model_df$head_end
 # add to well data frame
 wells_all <- 
   wells %>% 
-  dplyr::left_join(well_str_df, by = "WellNum") %>% 
+  dplyr::left_join(well_surfwat_df, by = "WellNum") %>% 
+  dplyr::left_join(well_evt_df, by = "WellNum") %>% 
   dplyr::left_join(model_df, by = c("row", "col")) %>% 
   transform(logTransmissivity_ft2s = log10(transmissivity_ft2s),
             logHk = log10(hk)) %>% 
   subset(ibound != 0) %>%   # remove 6 wells in inactive cells
-  subset(distToClosestStream_cells > 0)  # remove wells in same cell as a BC feature (STR or CHB)
+  subset(distToClosestSurfwat_cells > 0)  # remove wells in same cell as a BC feature (STR or CHB)
 
 ## select random sample of wells for pumping tests
 # want to select wells to test based on:
 #  - pumping rate (Qw_acreFeetDay_mean)
 #  - log transmissivity (logTransmissivity_ft2s)
 #  - storativity (ss)
-#  - distance to stream (distToClosestStream_cells)
+#  - distance to surface water (distToClosestSurfwat_cells) - includes STR, CHB, DRN
+#  - distance to phreatophyte ET (distToClosestEVT_cells)
 #  - water table depth (WTD_SS)
 #  - log hydraulic conductivity (logHk)
 #  - saturated thickness (sat_thickness)
@@ -246,7 +343,8 @@ wells_all <-
 Qw_range <- quantile(wells_all$Qw_acreFeetDay_mean, c(0.01, 0.99))
 logT_range <- quantile(wells_all$logTransmissivity_ft2s, c(0.01, 0.99))
 ss_range <- quantile(wells_all$ss, c(0.01, 0.99))
-dist_range <- quantile(wells_all$distToClosestStream_cells, c(0.01, 0.99))
+dist_range <- quantile(wells_all$distToClosestSurfwat_cells, c(0.01, 0.99))
+evt_range <- quantile(wells_all$distToClosestEVT_cells, c(0.01, 0.99))
 WTD_range <- quantile(wells_all$WTD_SS, c(0.01, 0.99))
 logHk_range <- quantile(wells_all$logHk, c(0.01, 0.99))
 b_range <- quantile(wells_all$sat_thickness, c(0.01, 0.99))
@@ -262,14 +360,16 @@ wells_all_norm <-
              Qw_acreFeetDay_mean = fnorm(wells_all$Qw_acreFeetDay_mean, Qw_range),
              logTransmissivity_ft2s = fnorm(wells_all$logTransmissivity_ft2s, logT_range),
              ss = fnorm(wells_all$ss, ss_range),
-             distToClosestStream_cells = fnorm(wells_all$distToClosestStream_cells, dist_range),
+             distToClosestSurfwat_cells = fnorm(wells_all$distToClosestSurfwat_cells, dist_range),
+             distToClosestEVT_cells = fnorm(wells_all$distToClosestEVT_cells, evt_range),
              WTD_SS = fnorm(wells_all$WTD_SS, WTD_range),
              logHk = fnorm(wells_all$logHk, logHk_range),
              sat_thickness = fnorm(wells_all$sat_thickness, b_range)) %>% 
   subset(Qw_acreFeetDay_mean >= 0 & Qw_acreFeetDay_mean <= 1 &
            logTransmissivity_ft2s >= 0 & logTransmissivity_ft2s <= 1 &
            ss >= 0 & ss <= 1 &
-           distToClosestStream_cells >= 0 & distToClosestStream_cells <= 1 &
+           distToClosestSurfwat_cells >= 0 & distToClosestSurfwat_cells <= 1 &
+           distToClosestEVT_cells >= 0 & distToClosestEVT_cells <= 1 &
            WTD_SS >= 0 & WTD_SS <= 1 &
            logHk >= 0 & logHk <= 1 &
            sat_thickness >= 0 & sat_thickness <= 1)
@@ -277,28 +377,10 @@ wells_all_norm <-
 # subset wells_all based on percentile
 wells_all <- subset(wells_all, WellNum %in% wells_all_norm$WellNum)
 
-# random sample of wells
+## sample using latin hypercube approach
 n_wells <- 250
 set.seed(n_wells)
-i_sample <- base::sample(seq(1, length(wells_all$WellNum)), 
-                         size = n_wells)
-wells_all$sample_random <- FALSE
-wells_all$sample_random[i_sample] <- TRUE
-
-# plot random sample distribution of all variables
-wells_all %>% 
-  dplyr::select(WellNum, sample_random, Qw_acreFeetDay_mean, logTransmissivity_ft2s, ss, distToClosestStream_cells, WTD_SS, logHk, sat_thickness) %>% 
-  reshape2::melt(id = c("WellNum", "sample_random")) %>%
-  ggplot() +
-  geom_histogram(aes(x = value, fill = sample_random)) +
-  facet_wrap(~ variable, scales = "free", nrow = 2) +
-  scale_y_continuous(name = "Number of Wells") +
-  theme(legend.position = c(1,0),
-        legend.justification = c(1,0))
-
-## sample using latin hypercube approach
-set.seed(n_wells)
-lhs_mat <- lhs::randomLHS(n = n_wells, k = 7)  # 7 parameters
+lhs_mat <- lhs::randomLHS(n = n_wells, k = 8)  # 7 parameters
 
 wells_mat <- 
   wells_all_norm %>% 
@@ -337,10 +419,12 @@ for (s in 1:n_wells){
 
 wells_all$sample_lhs <- FALSE
 wells_all$sample_lhs[wells_all$WellNum %in% well_sample_lhs] <- TRUE
+sum(wells_all$sample_lhs)
 
 # plot LHS sample distribution of all variables
 wells_all %>% 
-  dplyr::select(WellNum, sample_lhs, Qw_acreFeetDay_mean, logTransmissivity_ft2s, ss, distToClosestStream_cells, WTD_SS, logHk, sat_thickness) %>% 
+  dplyr::select(WellNum, sample_lhs, Qw_acreFeetDay_mean, logTransmissivity_ft2s, ss, 
+                distToClosestSurfwat_cells, distToClosestEVT_cells, WTD_SS, logHk, sat_thickness) %>% 
   reshape2::melt(id = c("WellNum", "sample_lhs")) %>%
   ggplot() +
   geom_histogram(aes(x = value, fill = sample_lhs)) +
@@ -349,11 +433,13 @@ wells_all %>%
   theme(legend.position = c(1,0),
         legend.justification = c(1,0))
 
-## save summary of wells
+## save output
+# well info
 wells_all %>% 
   # convert to metric units
   transform(hk_ms = hk*0.3048,
-            distToClosestStream_m = distToClosestStream_cells*5280*0.3048,
+            distToClosestSurfwat_m = distToClosestSurfwat_cells*5280*0.3048,
+            distToClosestEVT_m = distToClosestEVT_cells*5280*0.3048,
             top_m = top*0.3048,
             botm_m = botm*0.3048,
             strt_m = strt*0.3048,
@@ -363,9 +449,33 @@ wells_all %>%
             head_end_m = head_end*0.3048,
             Qw_m3d_mean = Qw_acreFeetDay_mean*1233.48) %>% 
   dplyr::select(WellNum, row, col, yr_pump_start, yr_pump_end, Qw_m3d_mean, hk_ms,
-                ss, sy, distToClosestStream_m, ground_m, top_m, botm_m, strt_m, rech_ms,
+                ss, sy, distToClosestSurfwat_m, distToClosestEVT_m, ground_m, top_m, botm_m, strt_m, rech_ms,
                 head_SS_m, head_end_m, sample_lhs) %>% 
   readr::write_csv(file.path("results", "RRCA12p_03_WellSample.csv"))
+
+# model grid
+model_df %>% 
+  # convert to metric units
+  transform(hk_ms = hk*0.3048,
+            top_m = top*0.3048,
+            botm_m = botm*0.3048,
+            strt_m = strt*0.3048,
+            rech_ms = rech*0.3048,
+            ground_m = ground*0.3048,
+            head_SS_m = head_SS*0.3048,
+            head_end_m = head_end*0.3048) %>% 
+  dplyr::select(row, col, hk_ms, ss, sy, ground_m, top_m, botm_m, strt_m, rech_ms,
+                head_SS_m, head_end_m) %>% 
+  readr::write_csv(file.path("results", "RRCA12p_03_ModelData.csv"))
+
+# surface water boundaries
+surfwat %>% 
+  # extract col/row from geometry
+  mutate(col = sf::st_coordinates(geometry)[1:length(surfwat$SegNum)],
+         row = sf::st_coordinates(geometry)[(length(surfwat$SegNum)+1):(2*length(surfwat$SegNum))]) %>% 
+  sf::st_drop_geometry() %>% 
+  dplyr::select(row, col, SegNum, ReachNum, BC, width, cond, cond_total) %>% 
+  readr::write_csv(file.path("results", "RRCA12p_03_Surfwat.csv"))
 
 ## inspect model via comparison with documentation
 # land surface - should match http://www.republicanrivercompact.org/v12p/html/ground.html
