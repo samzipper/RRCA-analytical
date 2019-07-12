@@ -336,8 +336,8 @@ wells_all <-
 #  - distance to surface water (distToClosestSurfwat_cells) - includes STR, CHB, DRN
 #  - distance to phreatophyte ET (distToClosestEVT_cells)
 #  - water table depth (WTD_SS)
-#  - log hydraulic conductivity (logHk)
-#  - saturated thickness (sat_thickness)
+#  - log hydraulic conductivity (logHk)  --> removed (included in T)
+#  - saturated thickness (sat_thickness) --> removed (included in T)
 
 # calculate 1st and 99th percentile for each variable
 Qw_range <- quantile(wells_all$Qw_acreFeetDay_mean, c(0.01, 0.99))
@@ -346,8 +346,8 @@ ss_range <- quantile(wells_all$ss, c(0.01, 0.99))
 dist_range <- quantile(wells_all$distToClosestSurfwat_cells, c(0.01, 0.99))
 evt_range <- quantile(wells_all$distToClosestEVT_cells, c(0.01, 0.99))
 WTD_range <- quantile(wells_all$WTD_SS, c(0.01, 0.99))
-logHk_range <- quantile(wells_all$logHk, c(0.01, 0.99))
-b_range <- quantile(wells_all$sat_thickness, c(0.01, 0.99))
+#logHk_range <- quantile(wells_all$logHk, c(0.01, 0.99))
+#b_range <- quantile(wells_all$sat_thickness, c(0.01, 0.99))
 
 # normalization function
 fnorm <- function(x, range){
@@ -362,17 +362,17 @@ wells_all_norm <-
              ss = fnorm(wells_all$ss, ss_range),
              distToClosestSurfwat_cells = fnorm(wells_all$distToClosestSurfwat_cells, dist_range),
              distToClosestEVT_cells = fnorm(wells_all$distToClosestEVT_cells, evt_range),
-             WTD_SS = fnorm(wells_all$WTD_SS, WTD_range),
-             logHk = fnorm(wells_all$logHk, logHk_range),
-             sat_thickness = fnorm(wells_all$sat_thickness, b_range)) %>% 
+             WTD_SS = fnorm(wells_all$WTD_SS, WTD_range)) %>% #,
+             #logHk = fnorm(wells_all$logHk, logHk_range),
+             #sat_thickness = fnorm(wells_all$sat_thickness, b_range)) %>% 
   subset(Qw_acreFeetDay_mean >= 0 & Qw_acreFeetDay_mean <= 1 &
            logTransmissivity_ft2s >= 0 & logTransmissivity_ft2s <= 1 &
            ss >= 0 & ss <= 1 &
            distToClosestSurfwat_cells >= 0 & distToClosestSurfwat_cells <= 1 &
            distToClosestEVT_cells >= 0 & distToClosestEVT_cells <= 1 &
-           WTD_SS >= 0 & WTD_SS <= 1 &
-           logHk >= 0 & logHk <= 1 &
-           sat_thickness >= 0 & sat_thickness <= 1)
+           WTD_SS >= 0 & WTD_SS <= 1)# &
+           #logHk >= 0 & logHk <= 1 &
+           #sat_thickness >= 0 & sat_thickness <= 1)
 
 # subset wells_all based on percentile
 wells_all <- subset(wells_all, WellNum %in% wells_all_norm$WellNum)
@@ -380,7 +380,7 @@ wells_all <- subset(wells_all, WellNum %in% wells_all_norm$WellNum)
 ## sample using latin hypercube approach
 n_wells <- 250
 set.seed(n_wells)
-lhs_mat <- lhs::randomLHS(n = n_wells, k = 8)  # 7 parameters
+lhs_mat <- lhs::randomLHS(n = n_wells, k = ncol(wells_all_norm)-1)
 
 wells_mat <- 
   wells_all_norm %>% 
