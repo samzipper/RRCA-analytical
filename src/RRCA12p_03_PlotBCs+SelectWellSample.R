@@ -1,4 +1,4 @@
-## RRCA12p_02_PlotBCs+SelectWellSample.R
+## RRCA12p_03_PlotBCs+SelectWellSample.R
 #' Plot locations and pumping rates for wells and select a sample of wells for analysis.
 
 source(file.path("src", "paths+packages.R"))
@@ -84,22 +84,22 @@ drn_df <-
 # script needs to be run in this specific order - DRN after CHB, followed by this code block
 DRN_SegNum_start <- max(ibound_df$SegNum)
 drn_df$SegNum <- NA
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 110 & drn_df$col < 50] <- CHB_SegNum_start + 1
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 100] <- CHB_SegNum_start + 2
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 175] <- CHB_SegNum_start + 3
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 225] <- CHB_SegNum_start + 4
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50] <- CHB_SegNum_start + 5
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 75] <- CHB_SegNum_start + 6
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 150] <- CHB_SegNum_start + 7
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 198] <- CHB_SegNum_start + 8
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 154] <- CHB_SegNum_start + 9
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 143] <- CHB_SegNum_start + 10
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 134] <- CHB_SegNum_start + 11
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 132 & drn_df$col > 225] <- CHB_SegNum_start + 11
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 126] <- CHB_SegNum_start + 12
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 112] <- CHB_SegNum_start + 13
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 108] <- CHB_SegNum_start + 14
-drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 90] <- CHB_SegNum_start + 15
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 110 & drn_df$col < 50] <- DRN_SegNum_start + 1
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 100] <- DRN_SegNum_start + 2
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 175] <- DRN_SegNum_start + 3
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50 & drn_df$col < 225] <- DRN_SegNum_start + 4
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row < 50] <- DRN_SegNum_start + 5
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 75] <- DRN_SegNum_start + 6
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 150] <- DRN_SegNum_start + 7
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 100 & drn_df$col < 198] <- DRN_SegNum_start + 8
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 154] <- DRN_SegNum_start + 9
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 143] <- DRN_SegNum_start + 10
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 134] <- DRN_SegNum_start + 11
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 132 & drn_df$col > 225] <- DRN_SegNum_start + 11
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 126] <- DRN_SegNum_start + 12
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 112] <- DRN_SegNum_start + 13
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 108] <- DRN_SegNum_start + 14
+drn_df$SegNum[is.na(drn_df$SegNum) & drn_df$row > 90] <- DRN_SegNum_start + 15
 ggplot(drn_df, aes(x = col, y = row, fill = factor(SegNum))) + geom_tile()
 
 # add columns to match up with 
