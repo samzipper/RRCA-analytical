@@ -276,7 +276,7 @@ well_evt_df <-
   filter(ET_mean == max(ET_mean))
 
 ## load some model characteristics
-vars_load <- c("LPF-hk", "LPF-ss", "LPF-sy", "DIS-top", "DIS-botm", "BAS6-strt", "BAS6-ibound", "RCH-rech")
+vars_load <- c("LPF-hk", "LPF-ss", "DIS-top", "DIS-botm", "BAS6-strt", "BAS6-ibound", "RCH-rech")
 model_df <- tibble::tibble(row = rep(seq(1, RRCA12p_nrow), each = RRCA12p_ncol),
                            col = rep(seq(1, RRCA12p_ncol), time = RRCA12p_nrow))
 
@@ -299,6 +299,12 @@ ground <-
   file.path(onedrive_ws, "ground", "ground.avg.64") %>%
   scan(skip=1)
 model_df$ground <- ground
+
+# load specific yield - not clear if this is actually used in model?
+sy <- 
+  file.path(onedrive_ws, "static", "12.sy") %>% 
+  scan()
+model_df$sy <- sy
 
 # load head at start and end
 head_SS <- 
