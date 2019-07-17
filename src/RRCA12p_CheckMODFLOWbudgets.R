@@ -92,7 +92,7 @@ for (w in 1:length(well_budget_files)){
   print(paste0("Sample ", w, " budget read-in complete"))
 }
 
-# check how many unique values there are (actual changes)
+# check how many unique values there are (actualchanges)
 mf_all_unique <- 
   mf_all %>% 
   dplyr::select(-WellNum) %>% 
@@ -107,12 +107,31 @@ wel_change <-
 ## extract net change in all other fluxes 
 nonwel_change <- 
   mf_all %>% 
-  subset(variable != "WEL_NET") %>% 
+  subset(!(variable %in% c("WEL_NET", "BALANCE_NET"))) %>% 
   dplyr::group_by(SP, WellNum) %>% 
   dplyr::summarize(nonwel_flux_change = sum(flux_change))
 
+## extract net change in mass balance
+balance_change <- 
+  mf_all %>% 
+  subset(variable == "BALANCE_NET") %>% 
+  rename(balance_change = flux_change) %>% 
+  dplyr::select(SP, WellNum, balance_change)
+
 ## join and plot
-dplyr::left_join(wel_change, nonwel_change, by = c("SP", "WellNum")) %>% 
-  ggplot(aes(x = wel_flux_change, y = nonwel_flux_change)) +
+change_all <-
+  dplyr::left_join(wel_change, nonwel_change, by = c("SP", "WellNum")) %>% 
+  dplyr::left_join(balance_change, by = c("SP", "WellNum")) %>% 
+  subset(wel_flux_change != 0 | nonwel_flux_change != 0 | balance_change != 0) %>% 
+  dplyr::mutate(flux_mismatch = nonwel_flux_change + wel_flux_change)
+
+ggplot(change_all, aes(x = wel_flux_change, y = nonwel_flux_change)) +
   geom_point() +
   geom_abline(intercept = 0, slope = -1, color = "red")
+
+ggplot(change_all, aes(x = balance_change, y = flux_mismatch)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red")
+
+ggplot(change_all, aes(x = flux_mismatch)) +
+  geom_histogram()
