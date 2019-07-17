@@ -20,6 +20,16 @@ model_ws_wells  <- file.path(onedrive_ws, "wells")
 RRCA12p_nrow <- 165
 RRCA12p_ncol <- 326
 
+# some info about time
+RRCA12p_time <- tibble::tibble(
+  kstpkper = paste0("(1, ", seq(1,996), ")"),
+  SP = seq(1, 996),
+  year = rep(seq(1918, 2000), each = 12),
+  month = rep(seq(1, 12), times = 996/12)
+) %>% 
+  dplyr::mutate(date_mid = lubridate::ymd(paste0(year, "-", month, "-", round(lubridate::days_in_month(month)/2))),
+                day_end = cumsum(lubridate::days_in_month(date_mid)))
+
 ## color palettes
 # categorical color palette from https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
 col.cat.grn <- "#3cb44b"   # green
