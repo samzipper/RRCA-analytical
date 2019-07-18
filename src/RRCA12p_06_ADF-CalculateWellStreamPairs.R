@@ -78,9 +78,7 @@ dist_singlePt_df <-
 dist_singlePt_df <- dist_singlePt_df[!duplicated(dist_singlePt_df[, c("WellNum", "SegNum", "stream_BC")]), ]
 
 # max number of segments to consider as potential options for each well
-#   selected this number iteratively - did a preliminary analysis considering all well-stream combos
-#   then looked at the max number of segments affected by a given well (which was 29)
-max.well.segs <- 30
+max.well.segs <- 15
 df_all <-
   dist_singlePt_df %>% 
   group_by(WellNum) %>% 
@@ -113,21 +111,29 @@ start.time <- Sys.time()
 for (i in 1:dim(df_all)[1]){
   # calculate based on all points intersecting a line
   # make a line connecting well to closest point on stream segment
-  sf.connector <- sf::st_nearest_points(subset(wells_sf, WellNum==dist_df$WellNum[i]), 
-                                        subset(surfwat_sf, SegNum==dist_df$SegNum[i])) %>% 
+  sf.connector <- 
+    sf::st_nearest_points(subset(wells_sf, WellNum==dist_df$WellNum[i]), 
+                          subset(surfwat_sf, SegNum==dist_df$SegNum[i])) %>% 
     sf::st_sf() %>% 
+    dplyr::mutate(length = as.numeric(sf::st_length(.))) %>% 
+    dplyr::filter(length == min(length))
+  
+  sp.connector <-
+    sf.connector[1,] %>%  # just in case two lines have same length
     as(., "Spatial") %>% 
     as(., "SpatialLines")
   
   # at each point along segment extract data
+  cellnums <- raster::extract(r_trans_m2s, sp.connector, cellnumbers = T)[[1]]
   df.connector <- 
     data.frame(
-      transmissivity_m2d = raster::extract(r_trans_m2s, sf.connector)[[1]]*86400,
-      ss = raster::extract(r_trans_ss, sf.connector)[[1]],
-      sy = raster::extract(r_trans_sy, sf.connector)[[1]]
+      transmissivity_m2d = cellnums[,"transmissivity_m2s"]*86400,
+      ss = raster::extract(r_trans_ss, cellnums[,"cell"]),
+      sy = raster::extract(r_trans_sy, cellnums[,"cell"])
     )
   df.connector <- df.connector[complete.cases(df.connector), ]  # remove NAs - happens if connector cuts across an area outside domain
   
+  # calculate properties
   cell.size <- 5280*0.3048  # cell size in m
   df_all$Tr_bulk_m2d[i] <- (cell.size*dim(df.connector)[1])/sum(cell.size/df.connector$transmissivity_m2d)
   df_all$ss_bulk[i] <- mean(df.connector$ss, na.rm = T)
