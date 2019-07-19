@@ -58,3 +58,12 @@ theme_scz <- function(...){
 
 theme_set(theme_scz())
 
+## functions
+# round all columns in data frame to reduce output file size
+# from: https://stackoverflow.com/questions/29352659/r-write-csv-with-fixed-precision
+dfDigits <- function(x, digits = 3) {
+  ## x is a data.frame
+  for (col in colnames(x)[sapply(x, class) == 'numeric'])
+    x[,col] <- round(x[,col], digits = digits)
+  x
+}
