@@ -47,8 +47,12 @@ dist_df <-
   data.frame(
     SegNum = rep(surfwat_sf$SegNum, times = dim(well_surfwat_dist)[2]),
     stream_width_m = rep(surfwat_sf$width, times = dim(well_surfwat_dist)[2]),
+    stream_row = rep(surfwat_df$row, times = dim(well_surfwat_dist)[2]),
+    stream_col = rep(surfwat_df$col, times = dim(well_surfwat_dist)[2]),
     stream_BC = rep(surfwat_sf$BC, times = dim(well_surfwat_dist)[2]),
     WellNum = rep(wells_df$WellNum, each = dim(well_surfwat_dist)[1]),
+    well_row = rep(wells_df$row, each = dim(well_surfwat_dist)[1]),
+    well_col = rep(wells_df$col, each = dim(well_surfwat_dist)[1]),
     well_elev_m = rep(wells_df$ground_m, times = dim(well_surfwat_dist)[1]),
     well_screenTopDepth_m = rep((wells_df$ground_m - wells_df$top_m), times = dim(well_surfwat_dist)[1]),
     well_wtd_m = rep(wells_df$WTD_SS_m, times = dim(well_surfwat_dist)[1]),
