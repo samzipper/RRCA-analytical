@@ -8,6 +8,7 @@ require(streamDepletr)
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
 apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
+storage <- "ss"   # "ss" or "sy"
 
 ## load pumping wells
 # well locations and characteristics
@@ -21,6 +22,7 @@ well_str_df <-
   file.path("results", "RRCA12p_06_ADF-CalculateWellStreamPairs.csv") %>% 
   readr::read_csv() %>% 
   subset(stream_BC %in% str_BCs)
+colnames(well_str_df)[colnames(well_str_df) == paste0(storage, "_bulk")] <- "S_bulk"
 
 # stress period data (created using script RRCA12p_03_Load+Simplify+RunBaseline.py)
 wel_spd <- 
@@ -119,7 +121,7 @@ for (w in 1:length(wells_all)){
                                                         d_max = max(str_df$dist_wellToStream_m),
                                                         method = "glover",
                                                         t = time_since_pump_start,
-                                                        S = min(str_df$ss_bulk),
+                                                        S = min(str_df$S_bulk),
                                                         Tr = max(str_df$Tr_bulk_m2d))
     } else if (analytical_model == "hunt") {
       max_dist <- streamDepletr::depletion_max_distance(Qf_thres = min_frac,
@@ -128,7 +130,7 @@ for (w in 1:length(wells_all)){
                                                         d_max = max(str_df$dist_wellToStream_m),
                                                         method = "hunt",
                                                         t = time_since_pump_start,
-                                                        S = min(str_df$ss_bulk),
+                                                        S = min(str_df$S_bulk),
                                                         Tr = max(str_df$Tr_bulk_m2d),
                                                         lmda = max(str_df$lmda_m2d))
     } else {
@@ -182,7 +184,7 @@ for (w in 1:length(wells_all)){
     dplyr::left_join(apportion_wel, well_str_df, by = c("SegNum", "WellNum"))
   wel_str_combos <-
     wel_str_input %>% 
-    dplyr::select(SegNum, WellNum, dist_wellToStream_m, ss_bulk, Tr_bulk_m2d, lmda_m2d) %>% 
+    dplyr::select(SegNum, WellNum, dist_wellToStream_m, S_bulk, Tr_bulk_m2d, lmda_m2d) %>% 
     unique()
   
   # calculate depletion through time for each combo
@@ -201,7 +203,7 @@ for (w in 1:length(wells_all)){
                                  rates  = pump_schedule$Qw_m3d,
                                  method = "glover",
                                  d = wel_str_combos$dist_wellToStream_m[i],
-                                 S = wel_str_combos$ss_bulk[i],
+                                 S = wel_str_combos$S_bulk[i],
                                  Tr = wel_str_combos$Tr_bulk_m2d[i])
       
     } else if (analytical_model == "hunt") {
@@ -211,7 +213,7 @@ for (w in 1:length(wells_all)){
                                  rates  = pump_schedule$Qw_m3d,
                                  method = "hunt",
                                  d = wel_str_combos$dist_wellToStream_m[i],
-                                 S = wel_str_combos$ss_bulk[i],
+                                 S = wel_str_combos$S_bulk[i],
                                  Tr = wel_str_combos$Tr_bulk_m2d[i],
                                  lmda = wel_str_combos$lmda_m2d[i])
     } else {
@@ -255,8 +257,8 @@ depletion_all %>%
   readr::write_csv(path = file.path("results", fname))
 
 ## look at output
-wel_out %>% 
-  subset(WellNum == 118) %>% 
+depletion_all %>% 
+  subset(WellNum == 11233) %>% 
   dplyr::group_by(WellNum, time_days) %>% 
   dplyr::summarize(Qw = mean(Qw_m3d),
                    Qs = sum(depletion_m3d)) %>% 
