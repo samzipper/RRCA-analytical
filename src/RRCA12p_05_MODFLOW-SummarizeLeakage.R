@@ -64,7 +64,7 @@ for (w in 1:length(wells_all)){
   # STR - already summarized by segment in python
   out_str_wel_bySeg <- 
     file.path(model_ws_wells, paste0("RRCA12p_Well", wel, "_STR_Leakage.csv")) %>% 
-    readr::read_csv() %>% 
+    readr::read_csv(col_types = cols()) %>% 
     dplyr::mutate(leakage_m3d = leakage*0.3048*0.3048*0.3048*86400) %>% 
     dplyr::mutate(BC = "STR",
                   WellNum = wel) %>% 
@@ -74,7 +74,7 @@ for (w in 1:length(wells_all)){
   # DRN
   out_drn_wel <- 
     file.path(model_ws_wells, paste0("RRCA12p_Well", wel, "_DRN_Leakage.csv")) %>% 
-    readr::read_csv()
+    readr::read_csv(col_types = cols())
   out_drn_wel[ ,c("row", "col")] <- out_drn_wel[ ,c("row", "col")] + 1
   out_drn_wel_bySeg <- 
     out_drn_wel %>% 
@@ -88,7 +88,7 @@ for (w in 1:length(wells_all)){
   # CHB
   out_chb_wel <- 
     file.path(model_ws_wells, paste0("RRCA12p_Well", wel, "_CHB_Leakage.csv")) %>% 
-    readr::read_csv()
+    readr::read_csv(col_types = cols())
   out_chb_wel[ ,c("row", "col")] <- out_chb_wel[ ,c("row", "col")] + 1
   out_chb_wel_bySeg <- 
     out_chb_wel %>% 
