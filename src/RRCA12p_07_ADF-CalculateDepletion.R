@@ -253,7 +253,7 @@ for (w in 1:length(wells_all)){
 fname <- paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".csv")
 depletion_all %>% 
   dplyr::select(WellNum, SegNum, time_days, Qw_m3d, frac_depletion, Qa, depletion_m3d) %>% 
-  dfDigits() %>% 
+  dfDigits(digits = 3) %>% 
   readr::write_csv(path = file.path("results", fname))
 
 ## look at output
