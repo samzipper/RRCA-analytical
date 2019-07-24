@@ -8,7 +8,7 @@ require(streamDepletr)
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
 apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
-storage <- "ss"   # "ss" or "sy"
+storage <- "sy"   # "ss" or "sy"
 
 ## load pumping wells
 # well locations and characteristics
@@ -224,8 +224,7 @@ for (w in 1:length(wells_all)){
     combo_Qa <- data.frame(SegNum = seg,
                            WellNum = wel,
                            time_days = output_t_days,
-                           Qa = Qs) %>% 
-      subset(Qs > 1e-6)
+                           Qa = Qs)
     
     if (i == 1){
       wel_Qa <- combo_Qa
@@ -237,7 +236,8 @@ for (w in 1:length(wells_all)){
   wel_out <- 
     dplyr::left_join(apportion_wel, wel_Qa, by = c("SegNum", "WellNum", "time_days")) %>% 
     dplyr::left_join(spd[,c("day_end", "Qw_m3d")], by = c("time_days" = "day_end")) %>% 
-    dplyr::mutate(depletion_m3d = Qa*frac_depletion)
+    dplyr::mutate(depletion_m3d = Qa*frac_depletion) %>% 
+    subset(depletion_m3d > 1e-3)
   
   if (w == 1){
     depletion_all <- wel_out
