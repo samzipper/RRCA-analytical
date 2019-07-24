@@ -106,9 +106,9 @@ for (w in 1:length(wells_all)){
     dplyr::mutate(leakage_change_m3d = (leakage_m3d - leakage_m3d_baseline))
   
   if (w == 1){
-    out_all <- subset(out_wel_baseline, leakage_change_m3d > 1e-6)
+    out_all <- subset(out_wel_baseline, abs(leakage_change_m3d) > 1e-3)
   } else {
-    out_all <- dplyr::bind_rows(out_all, subset(out_wel_baseline, leakage_change_m3d > 1e-6))
+    out_all <- dplyr::bind_rows(out_all, subset(out_wel_baseline, abs(leakage_change_m3d) > 1e-3))
   }
   
   ## status update

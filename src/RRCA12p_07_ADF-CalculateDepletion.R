@@ -4,7 +4,7 @@
 source(file.path("src", "paths+packages.R"))
 require(streamDepletr)
 
-## some parameters controlling processing
+## some parameters controlling ADF calculations
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
 apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
