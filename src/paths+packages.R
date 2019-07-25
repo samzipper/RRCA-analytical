@@ -25,7 +25,10 @@ RRCA12p_time <- tibble::tibble(
   kstpkper = paste0("(1, ", seq(1,996), ")"),
   SP = seq(1, 996),
   year = rep(seq(1918, 2000), each = 12),
-  month = rep(seq(1, 12), times = 996/12)
+  month = rep(seq(1, 12), times = 996/12),
+  season = rep(c("Non-Pumping", "Non-Pumping", "Non-Pumping", "Non-Pumping", "Non-Pumping", "Pumping", 
+                 "Pumping", "Pumping", "Pumping", "Non-Pumping", "Non-Pumping", "Non-Pumping"),
+               times = 996/12)
 ) %>% 
   dplyr::mutate(date_mid = lubridate::ymd(paste0(year, "-", month, "-", round(lubridate::days_in_month(month)/2))),
                 day_end = cumsum(lubridate::days_in_month(date_mid)))
@@ -38,6 +41,8 @@ col.cat.org <- "#f58231"   # orange
 col.cat.red <- "#e6194b"   # red
 col.cat.blu <- "#0082c8"   # blue
 col.gray <- "gray65"       # gray for annotation lines, etc
+
+pal.season <- c("All" = "black", "Pumping"= col.cat.org, "Non-Pumping" = col.cat.blu)
 
 ## ggplot theme
 windowsFonts(Arial=windowsFont("TT Arial"))
@@ -66,4 +71,11 @@ dfDigits <- function(x, digits = 3) {
   for (col in colnames(x)[sapply(x, class) == 'numeric'])
     x[,col] <- round(x[,col], digits = digits)
   x
+}
+
+# r squared
+R2 <- function(sim, obs) {
+  if (length(sim) != length(obs)) stop("vectors not the same size")
+  return((sum((obs-mean(obs))*(sim-mean(sim)))/
+            ((sum((obs-mean(obs))^2)^0.5)*(sum((sim-mean(sim))^2)^0.5)))^2)
 }
