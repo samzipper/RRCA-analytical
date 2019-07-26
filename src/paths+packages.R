@@ -44,6 +44,14 @@ col.gray <- "gray65"       # gray for annotation lines, etc
 
 pal.season <- c("All" = "black", "Pumping"= col.cat.org, "Non-Pumping" = col.cat.blu)
 
+## labels
+labs_wellProperties <- c("Qw_m3d_abs" = "Pumping Rate [m\u00b3/d]",
+                         "logTransmissivity_m2s" = "log(Trans) [m\u00b2/s]",
+                         "ss_prc" = "Storativity [%]",
+                         "distToClosestSurfwat_km" = "Distance to Water [km]",
+                         "distToClosestEVT_km" = "Distance to ET [km]",
+                         "WTD_SS_m" = "Water Table Depth [m]")
+
 ## ggplot theme
 windowsFonts(Arial=windowsFont("TT Arial"))
 theme_scz <- function(...){

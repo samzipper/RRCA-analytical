@@ -86,12 +86,7 @@ p.wells <-
   ggplot() +
   geom_histogram(aes(x = value), fill = col.cat.red) +
   facet_wrap( ~ variable, scales = "free", ncol = 2,
-             labeller = as_labeller(c("Qw_m3d_abs" = "Pumping Rate [m\u00b3/d]",
-                                      "logTransmissivity_m2s" = "log(Trans) [m\u00b2/s]",
-                                      "ss_prc" = "Storativity [%]",
-                                      "distToClosestSurfwat_km" = "Distance to Water [km]",
-                                      "distToClosestEVT_km" = "Distance to ET [km]",
-                                      "WTD_SS_m" = "Water Table Depth [m]",
+             labeller = as_labeller(c(labs_wellProperties,
                                       "FALSE" = "All Wells",
                                       "TRUE" = "Tested Sample"))) +
   scale_x_continuous(name = "Value of Variable", expand = c(0,0)) +
