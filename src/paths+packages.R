@@ -10,6 +10,8 @@ library(lubridate)
 #  these are version RRCA12p downloaded from http://www.republicanrivercompact.org/v12p/html/ch00.html
 if (Sys.info()["nodename"] == "GSAS-PC5"){
   onedrive_ws <- "C:/Users/gsas/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
+} else if (Sys.info()["nodename"] == "GHPC118") {
+  onedrive_ws <- "C:/Users/samzipper/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
 } else {
   onedrive_ws <- "C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
 }

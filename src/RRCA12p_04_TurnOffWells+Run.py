@@ -13,8 +13,8 @@ import datetime
 ## set up your model
 modelname = 'RRCA12p'
 modflow_v = 'mf2k'
-path2mf = 'C:/Users/gsas/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
-onedrive_ws = 'C:/Users/gsas/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
+path2mf = 'C:/Users/samzipper/OneDrive/OneDrive - The University of Kansas/Research/Models/MODFLOW/mf2k.1_19/bin/mf2k.exe'  # path to MODFLOW executable
+onedrive_ws = 'C:/Users/samzipper/OneDrive/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA'
 
 ## paths for baseline model
 model_ws_simple = os.path.join(onedrive_ws, 'baseline_simple')
