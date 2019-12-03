@@ -9,7 +9,7 @@ source(file.path("src", "paths+packages.R"))
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
 apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
-storage <- "sy"   # "ss" or "sy"
+storage <- "ss_bulk_m"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
 
 ## load depletion estimates
 modflow_df <- 
@@ -177,7 +177,7 @@ for (i in 1:length(wells_all)){
 }
 
 ## calculate fit metrics
-min_value_for_fit <- 0
+min_value_for_fit <- -Inf
 
 # fit by well - overall
 capture_fit_all <-
@@ -281,9 +281,8 @@ fit_match_byWell %>%
     logTransmissivity_m2s = log10(transmissivity_m2s),
     Qw_m3d_abs = abs(Qw_m3d_mean),
     distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
-    distToClosestEVT_km = distToClosestEVT_m/1000,
-    ss_prc = ss*100) %>% 
-  dplyr::select(WellNum, prc_match, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_prc) %>% 
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, prc_match, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
   reshape2::melt(id = c("WellNum", "prc_match")) %>% 
   ggplot(aes(y = prc_match, x = value)) +
   geom_point() +
@@ -309,9 +308,8 @@ fit_all_wel %>%
     logTransmissivity_m2s = log10(transmissivity_m2s),
     Qw_m3d_abs = abs(Qw_m3d_mean),
     distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
-    distToClosestEVT_km = distToClosestEVT_m/1000,
-    ss_prc = ss*100) %>% 
-  dplyr::select(WellNum, KGE, metric, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_prc) %>% 
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, KGE, metric, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
   reshape2::melt(id = c("WellNum", "KGE", "metric")) %>% 
   ggplot(aes(y = KGE, x = value)) +
   geom_hline(yintercept = -0.41, color = col.gray) +
@@ -334,7 +332,7 @@ ggplot(fit_all_wel, aes(y = KGE, x = abs(Qw_m3d_mean), color = season)) +
   scale_y_continuous(limits = c(-2.5, 1)) +
   scale_color_manual(values = pal.season)
 
-ggplot(fit_all_wel, aes(y = KGE, x = ss, color = season)) +
+ggplot(fit_all_wel, aes(y = KGE, x = ss_m, color = season)) +
   geom_hline(yintercept = -0.41, color = col.gray) +
   geom_point() +
   facet_grid(metric ~ season) +

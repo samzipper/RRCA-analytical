@@ -59,8 +59,8 @@ dist_df <-
     dist_wellToStreamPoints_m = as.numeric(well_surfwat_dist)*5280*0.3048,  # convert cells to m
     Tr_well_m2d = rep(wells_df$transmissivity_m2s*86400, each = dim(well_surfwat_dist)[1]),  # convert m2/s to m2/d
     Tr_bulk_m2d = NaN,
-    ss_well = rep(wells_df$ss, each = dim(well_surfwat_dist)[1]),
-    ss_bulk = NaN,
+    ss_well_m = rep(wells_df$ss_m, each = dim(well_surfwat_dist)[1]),
+    ss_bulk_m = NaN,
     sy_well = rep(wells_df$sy, each = dim(well_surfwat_dist)[1]),
     sy_bulk = NaN,
     lmda_m2d = rep(surfwat_sf$cond*0.3048*0.3048*86400, times = dim(well_surfwat_dist)[2])  # convert ft2/s to m2/d
@@ -96,12 +96,12 @@ r_trans_m2s <-
   raster::rasterFromXYZ(crs="+init=epsg:26714")
 r_trans_m2s[r_trans_m2s <= 0] <- NA
 
-r_trans_ss <- 
+r_trans_ss_m <- 
   model_df %>% 
-  dplyr::select(col, row, ss) %>% 
+  dplyr::select(col, row, ss_m) %>% 
   magrittr::set_colnames(c("x", "y", "ss")) %>% 
   raster::rasterFromXYZ(crs="+init=epsg:26714")
-r_trans_ss[r_trans_ss <= 0] <- NA
+r_trans_ss_m[r_trans_ss_m <= 0] <- NA
 
 r_trans_sy <- 
   model_df %>% 
@@ -132,7 +132,7 @@ for (i in 1:dim(df_all)[1]){
   df.connector <- 
     data.frame(
       transmissivity_m2d = cellnums[,"transmissivity_m2s"]*86400,
-      ss = raster::extract(r_trans_ss, cellnums[,"cell"]),
+      ss_m = raster::extract(r_trans_ss_m, cellnums[,"cell"]),
       sy = raster::extract(r_trans_sy, cellnums[,"cell"])
     )
   df.connector <- df.connector[complete.cases(df.connector), ]  # remove NAs - happens if connector cuts across an area outside domain
@@ -140,7 +140,7 @@ for (i in 1:dim(df_all)[1]){
   # calculate properties
   cell.size <- 5280*0.3048  # cell size in m
   df_all$Tr_bulk_m2d[i] <- (cell.size*dim(df.connector)[1])/sum(cell.size/df.connector$transmissivity_m2d)
-  df_all$ss_bulk[i] <- mean(df.connector$ss, na.rm = T)
+  df_all$ss_bulk_m[i] <- mean(df.connector$ss_m, na.rm = T)
   df_all$sy_bulk[i] <- mean(df.connector$sy, na.rm = T)
   
   # status update

@@ -10,7 +10,7 @@ library(lubridate)
 #  these are version RRCA12p downloaded from http://www.republicanrivercompact.org/v12p/html/ch00.html
 if (Sys.info()["nodename"] == "GSAS-PC5"){
   onedrive_ws <- "C:/Users/gsas/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
-} else if (Sys.info()["nodename"] == "GHPC118") {
+} else if (Sys.info()["nodename"] %in% c("GHPC118", "GHPC117")) {
   onedrive_ws <- "C:/Users/samzipper/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
 } else {
   onedrive_ws <- "C:/Users/Sam/OneDrive - The University of Kansas/Research/StreamflowDepletion/RRCA"
@@ -49,7 +49,7 @@ pal.season <- c("All" = "black", "Pumping"= col.cat.org, "Non-Pumping" = col.cat
 ## labels
 labs_wellProperties <- c("Qw_m3d_abs" = "Pumping Rate [m\u00b3/d]",
                          "logTransmissivity_m2s" = "log(Trans) [m\u00b2/s]",
-                         "ss_prc" = "Storativity [%]",
+                         "ss_m" = "Specific Storage [m\u207b\u00b9]",
                          "distToClosestSurfwat_km" = "Distance to Water [km]",
                          "distToClosestEVT_km" = "Distance to ET [km]",
                          "WTD_SS_m" = "Water Table Depth [m]")

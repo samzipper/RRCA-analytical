@@ -8,7 +8,7 @@ require(streamDepletr)
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
 apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
-storage <- "sy"   # "ss" or "sy"
+storage <- "ss_bulk_m"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
 
 ## load pumping wells
 # well locations and characteristics
@@ -22,7 +22,7 @@ well_str_df <-
   file.path("results", "RRCA12p_06_ADF-CalculateWellStreamPairs.csv") %>% 
   readr::read_csv() %>% 
   subset(stream_BC %in% str_BCs)
-colnames(well_str_df)[colnames(well_str_df) == paste0(storage, "_bulk")] <- "S_bulk"
+colnames(well_str_df)[colnames(well_str_df) == storage] <- "S_bulk"
 
 # stress period data (created using script RRCA12p_03_Load+Simplify+RunBaseline.py)
 wel_spd <- 

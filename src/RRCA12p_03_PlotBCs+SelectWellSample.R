@@ -338,7 +338,7 @@ wells_all <-
 # want to select wells to test based on:
 #  - pumping rate (Qw_acreFeetDay_mean)
 #  - log transmissivity (logTransmissivity_ft2s)
-#  - storativity (ss)
+#  - storativity (ss) - units of 1/ft
 #  - distance to surface water (distToClosestSurfwat_cells) - includes STR, CHB, DRN
 #  - distance to phreatophyte ET (distToClosestEVT_cells)
 #  - water table depth (WTD_SS)
@@ -444,6 +444,7 @@ wells_all %>%
 wells_all %>% 
   # convert to metric units
   transform(hk_ms = hk*0.3048,
+            ss_m = ss*3.28084, # from [1/ft] to [1/m] --> [1/ft][3.28084 ft/1 m] = [1/m]
             distToClosestSurfwat_m = distToClosestSurfwat_cells*5280*0.3048,
             distToClosestEVT_m = distToClosestEVT_cells*5280*0.3048,
             top_m = top*0.3048,
@@ -455,7 +456,7 @@ wells_all %>%
             head_end_m = head_end*0.3048,
             Qw_m3d_mean = Qw_acreFeetDay_mean*1233.48) %>% 
   dplyr::select(WellNum, row, col, yr_pump_start, yr_pump_end, Qw_m3d_mean, hk_ms,
-                ss, sy, distToClosestSurfwat_m, distToClosestEVT_m, ground_m, top_m, botm_m, strt_m, rech_ms,
+                ss_m, sy, distToClosestSurfwat_m, distToClosestEVT_m, ground_m, top_m, botm_m, strt_m, rech_ms,
                 head_SS_m, head_end_m, sample_lhs) %>% 
   readr::write_csv(file.path("results", "RRCA12p_03_WellSample.csv"))
 
@@ -463,6 +464,7 @@ wells_all %>%
 model_df %>% 
   # convert to metric units
   transform(hk_ms = hk*0.3048,
+            ss_m = ss*3.28084,
             top_m = top*0.3048,
             botm_m = botm*0.3048,
             strt_m = strt*0.3048,
@@ -470,7 +472,7 @@ model_df %>%
             ground_m = ground*0.3048,
             head_SS_m = head_SS*0.3048,
             head_end_m = head_end*0.3048) %>% 
-  dplyr::select(row, col, hk_ms, ss, sy, ground_m, top_m, botm_m, strt_m, rech_ms,
+  dplyr::select(row, col, hk_ms, ss_m, sy, ground_m, top_m, botm_m, strt_m, rech_ms,
                 head_SS_m, head_end_m) %>% 
   readr::write_csv(file.path("results", "RRCA12p_03_ModelData.csv"))
 
