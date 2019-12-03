@@ -5,10 +5,12 @@ source(file.path("src", "paths+packages.R"))
 require(streamDepletr)
 
 ## some parameters controlling ADF calculations
+proximity <- c("Adjacent", "Adjacent+Expanding")
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
-apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
+apportionment_eqs <- c("Web", "WebSq")  # depletion apportionment equation: "Web" or "WebSq"
 storage <- "ss_bulk_m"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
+min_frac <- 0.01  # minimum fraction to consider
 
 ## load pumping wells
 # well locations and characteristics
@@ -58,6 +60,7 @@ dist_df <-
 
 ## list of wells to analyze
 wells_all <- unique(well_str_df$WellNum)
+start_flag <- T
 for (w in 1:length(wells_all)){
   ## get well info
   wel <- wells_all[w]
@@ -84,177 +87,233 @@ for (w in 1:length(wells_all)){
   ## get well-stream pairs
   str_df <- subset(well_str_df, WellNum == wel)
   
-  ## stream proximity criteria
-  # find adjacent catchments using thiessen polygon
-  wel_apportion_poly <- 
-    str_df %>% 
-    dplyr::select(SegNum, dist_wellToStream_m, stream_col, stream_row) %>% 
-    streamDepletr::apportion_polygon(., 
-                                     wel_lon = wel_col, 
-                                     wel_lat = wel_row,
-                                     crs = sp::CRS("+init=epsg:26714"),
-                                     reach_name = "SegNum",
-                                     dist_name = "dist_wellToStream_m",
-                                     lon_name = "stream_col",
-                                     lat_name = "stream_row") %>% 
-    magrittr::set_colnames(c("SegNum", "frac_depletion"))
+  # distance to all point on each segment
+  str_all_df <- 
+    dist_df %>% 
+    subset(WellNum == wel)
   
-  # figure out mean pumping rate for all months after the start of pumping
-  Qw_m3d_mean <- mean(spd$Qw_m3d[spd$day_start >= wel_pump_start])
-  
-  # find maximum distance, based on maximum observed S, Tr, lmda (inclusive estimate)
-  min_frac <- 0.01
-  dist_inc_m <- 5280*0.3048  # increment of 1 model cell (1 mile)
-  max_dist_prev <- max(c(min(str_df$dist_wellToStream_m), dist_inc_m))
-  
-  spd$max_dist_m <- NaN
-  wel_start_flag <- T
-  for (sp in spd$SP[spd$day_end > wel_pump_start]){
+  for (prox in proximity){
+    ## stream proximity criteria
+    # find adjacent catchments using thiessen polygon
+    wel_apportion_poly <- 
+      str_df %>% 
+      dplyr::select(SegNum, dist_wellToStream_m, stream_col, stream_row) %>% 
+      streamDepletr::apportion_polygon(., 
+                                       wel_lon = wel_col, 
+                                       wel_lat = wel_row,
+                                       crs = sp::CRS("+init=epsg:26714"),
+                                       reach_name = "SegNum",
+                                       dist_name = "dist_wellToStream_m",
+                                       lon_name = "stream_col",
+                                       lat_name = "stream_row") %>% 
+      magrittr::set_colnames(c("SegNum", "frac_depletion"))
     
-    # distance threshold
-    time_days <- spd$day_end[spd$SP == sp]
-    time_since_pump_start <- time_days - wel_pump_start
-    if (analytical_model == "glover") {
-      max_dist <- streamDepletr::depletion_max_distance(Qf_thres = min_frac,
-                                                        d_interval = dist_inc_m,
-                                                        d_min = max_dist_prev,
-                                                        d_max = max(str_df$dist_wellToStream_m),
-                                                        method = "glover",
-                                                        t = time_since_pump_start,
-                                                        S = min(str_df$S_bulk),
-                                                        Tr = max(str_df$Tr_bulk_m2d))
-    } else if (analytical_model == "hunt") {
-      max_dist <- streamDepletr::depletion_max_distance(Qf_thres = min_frac,
-                                                        d_interval = dist_inc_m,
-                                                        d_min = max_dist_prev,
-                                                        d_max = max(str_df$dist_wellToStream_m),
-                                                        method = "hunt",
-                                                        t = time_since_pump_start,
-                                                        S = min(str_df$S_bulk),
-                                                        Tr = max(str_df$Tr_bulk_m2d),
-                                                        lmda = max(str_df$lmda_m2d))
-    } else {
-      stop("Analytical model not defined correctly; choose glover or hunt")
-    }
-    spd$max_dist_m[sp] <- max_dist
-    if (max_dist > max_dist_prev) max_dist_prev <- max_dist
-    
-    ## depletion apportionment
-    if (apportionment == "Web") { 
-      web_exp <- 1 
-    } else if (apportionment == "WebSq") { 
-      web_exp <- 2 
-    } else { 
-      stop("Depletion apportionment not defined correctly; choose Web or WebSq") 
-    } 
-    
-    # distance to all point on each segment
-    str_all_df <- 
-      dist_df %>% 
-      subset(WellNum == wel)
-    
-    wel_apportion_web <- 
-      str_all_df %>% 
-      dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
-      subset((dist_wellToStreamPoints_m <= max_dist) | (SegNum %in% wel_apportion_poly$SegNum)) %>% 
-      streamDepletr::apportion_web(., 
-                                   w = web_exp,
-                                   min_frac = min_frac,
-                                   reach_name = "SegNum",
-                                   dist_name = "dist_wellToStreamPoints_m") %>% 
-      magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
-      dplyr::mutate(WellNum = wel,
-                    time_days = time_days,
-                    time_since_pump_start_days = time_since_pump_start,
-                    SP = sp)
-    
-    ## combine output
-    if (wel_start_flag){
-      apportion_wel <- wel_apportion_web
-      wel_start_flag <- F
-    } else {
-      apportion_wel <- rbind(apportion_wel, wel_apportion_web)
-    }
-    
-  }
-  
-  ## now: run analytical model
-  # join with input data and figure out all unique well-stream combinations
-  wel_str_input <-
-    dplyr::left_join(apportion_wel, well_str_df, by = c("SegNum", "WellNum"))
-  wel_str_combos <-
-    wel_str_input %>% 
-    dplyr::select(SegNum, WellNum, dist_wellToStream_m, S_bulk, Tr_bulk_m2d, lmda_m2d) %>% 
-    unique()
-  
-  # calculate depletion through time for each combo
-  for (i in 1:dim(wel_str_combos)[1]){
-    # identify well-seg combo
-    seg <- wel_str_combos$SegNum[i]
-    
-    # get times
-    output_t_days <- wel_str_input$time_days[wel_str_input$SegNum == seg & wel_str_input$WellNum == wel]
-    output_frac <- wel_str_input$frac_depletion[wel_str_input$SegNum == seg & wel_str_input$WellNum == wel]
-    # pump
-    if (analytical_model == "glover") {
-      Qs <- intermittent_pumping(t = output_t_days,
-                                 starts = pump_schedule$StartOfMonthDays,
-                                 stops  = pump_schedule$EndOfMonthDays,
-                                 rates  = pump_schedule$Qw_m3d,
-                                 method = "glover",
-                                 d = wel_str_combos$dist_wellToStream_m[i],
-                                 S = wel_str_combos$S_bulk[i],
-                                 Tr = wel_str_combos$Tr_bulk_m2d[i])
+    for (apportionment in apportionment_eqs) {
+      ## depletion apportionment
+      if (apportionment == "Web") { 
+        web_exp <- 1 
+      } else if (apportionment == "WebSq") { 
+        web_exp <- 2 
+      } else { 
+        stop("Depletion apportionment not defined correctly; choose Web or WebSq") 
+      } 
       
-    } else if (analytical_model == "hunt") {
-      Qa <- intermittent_pumping(t = output_t_days,
-                                 starts = pump_schedule$StartOfMonthDays,
-                                 stops  = pump_schedule$EndOfMonthDays,
-                                 rates  = pump_schedule$Qw_m3d,
-                                 method = "hunt",
-                                 d = wel_str_combos$dist_wellToStream_m[i],
-                                 S = wel_str_combos$S_bulk[i],
-                                 Tr = wel_str_combos$Tr_bulk_m2d[i],
-                                 lmda = wel_str_combos$lmda_m2d[i])
-    } else {
-      stop("Analytical model not defined correctly; choose glover or hunt")
-    }
-    
-    # compile output
-    combo_Qa <- data.frame(SegNum = seg,
-                           WellNum = wel,
-                           time_days = output_t_days,
-                           Qa = Qs)
-    
-    if (i == 1){
-      wel_Qa <- combo_Qa
-    } else {
-      wel_Qa <- rbind(wel_Qa, combo_Qa)
-    }
-  }
-  
-  wel_out <- 
-    dplyr::left_join(apportion_wel, wel_Qa, by = c("SegNum", "WellNum", "time_days")) %>% 
-    dplyr::left_join(spd[,c("day_end", "Qw_m3d")], by = c("time_days" = "day_end")) %>% 
-    dplyr::mutate(depletion_m3d = Qa*frac_depletion) %>% 
-    subset(depletion_m3d > 1e-3)
-  
-  if (w == 1){
-    depletion_all <- wel_out
-  } else {
-    depletion_all <- rbind(depletion_all, wel_out)
-  }
-  
-  ## status update
-  print(paste0(w, " of ", length(wells_all), " complete, ", Sys.time()))
-}
+      if (prox == "Adjacent"){
+        # apportion using only segments identified using Theissen Polygons
+        apportion_wel <- 
+          str_all_df %>% 
+          dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
+          subset(SegNum %in% wel_apportion_poly$SegNum) %>% 
+          streamDepletr::apportion_web(., 
+                                       w = web_exp,
+                                       min_frac = min_frac,
+                                       reach_name = "SegNum",
+                                       dist_name = "dist_wellToStreamPoints_m") %>% 
+          magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
+          dplyr::mutate(WellNum = wel,
+                        proximity = prox, 
+                        apportionment = apportionment,
+                        analytical = analytical_model)
+        
+        
+      } else if (prox == "Adjacent+Expanding"){
+        
+        # figure out mean pumping rate for all months after the start of pumping
+        Qw_m3d_mean <- mean(spd$Qw_m3d[spd$day_start >= wel_pump_start])
+        
+        # find maximum distance, based on maximum observed S, Tr, lmda (inclusive estimate)
+        dist_inc_m <- 5280*0.3048  # increment of 1 model cell (1 mile)
+        max_dist_prev <- max(c(min(str_df$dist_wellToStream_m), dist_inc_m))
+        
+        spd$max_dist_m <- NaN
+        wel_start_flag <- T
+        for (sp in spd$SP[spd$day_end > wel_pump_start]){
+          
+          # distance threshold
+          time_days <- spd$day_end[spd$SP == sp]
+          time_since_pump_start <- time_days - wel_pump_start
+          if (analytical_model == "glover") {
+            max_dist <- streamDepletr::depletion_max_distance(Qf_thres = min_frac,
+                                                              d_interval = dist_inc_m,
+                                                              d_min = max_dist_prev,
+                                                              d_max = max(str_df$dist_wellToStream_m),
+                                                              method = "glover",
+                                                              t = time_since_pump_start,
+                                                              S = min(str_df$S_bulk),
+                                                              Tr = max(str_df$Tr_bulk_m2d))
+          } else if (analytical_model == "hunt") {
+            max_dist <- streamDepletr::depletion_max_distance(Qf_thres = min_frac,
+                                                              d_interval = dist_inc_m,
+                                                              d_min = max_dist_prev,
+                                                              d_max = max(str_df$dist_wellToStream_m),
+                                                              method = "hunt",
+                                                              t = time_since_pump_start,
+                                                              S = min(str_df$S_bulk),
+                                                              Tr = max(str_df$Tr_bulk_m2d),
+                                                              lmda = max(str_df$lmda_m2d))
+          } else {
+            stop("Analytical model not defined correctly; choose glover or hunt")
+          }
+          spd$max_dist_m[sp] <- max_dist
+          if (max_dist > max_dist_prev) max_dist_prev <- max_dist
+          
+          # apportion
+          wel_apportion_web <- 
+            str_all_df %>% 
+            dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
+            subset((dist_wellToStreamPoints_m <= max_dist) | (SegNum %in% wel_apportion_poly$SegNum)) %>% 
+            streamDepletr::apportion_web(., 
+                                         w = web_exp,
+                                         min_frac = min_frac,
+                                         reach_name = "SegNum",
+                                         dist_name = "dist_wellToStreamPoints_m") %>% 
+            magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
+            dplyr::mutate(WellNum = wel,
+                          time_days = time_days,
+                          time_since_pump_start_days = time_since_pump_start,
+                          SP = sp,
+                          proximity = prox, 
+                          apportionment = apportionment,
+                          analytical = analytical_model)
+          
+          ## combine output
+          if (wel_start_flag){
+            apportion_wel <- wel_apportion_web
+            wel_start_flag <- F
+          } else {
+            apportion_wel <- rbind(apportion_wel, wel_apportion_web)
+          }
+        }
+        
+      } else { 
+        stop("Stream proximity criteria not defined correctly; choose Adjacent or Adjacent+Expanding") 
+      } 
+      
+      
+      ## now: run analytical model
+      # join with input data and figure out all unique well-stream combinations
+      wel_str_input <-
+        dplyr::left_join(apportion_wel, well_str_df, by = c("SegNum", "WellNum"))
+      wel_str_combos <-
+        wel_str_input %>% 
+        dplyr::select(SegNum, WellNum, dist_wellToStream_m, S_bulk, Tr_bulk_m2d, lmda_m2d) %>% 
+        unique()
+      
+      # calculate depletion through time for each combo
+      for (i in 1:dim(wel_str_combos)[1]){
+        # identify well-seg combo
+        seg <- wel_str_combos$SegNum[i]
+        
+        # get times
+        if (prox == "Adjacent"){
+          output_t_days <- spd$day_end[spd$day_end > wel_pump_start]
+          output_frac <- rep(apportion_wel$frac_depletion[apportion_wel$SegNum == seg], times = length(output_t_days))
+        } else if (prox == "Adjacent+Expanding"){
+          output_t_days <- wel_str_input$time_days[wel_str_input$SegNum == seg & wel_str_input$WellNum == wel]
+          output_frac <- wel_str_input$frac_depletion[wel_str_input$SegNum == seg & wel_str_input$WellNum == wel]
+          
+        } else {
+          stop("Error setting time for analytical models")
+        }
+        
+        # pump
+        if (analytical_model == "glover") {
+          Qs <- intermittent_pumping(t = output_t_days,
+                                     starts = pump_schedule$StartOfMonthDays,
+                                     stops  = pump_schedule$EndOfMonthDays,
+                                     rates  = pump_schedule$Qw_m3d,
+                                     method = "glover",
+                                     d = wel_str_combos$dist_wellToStream_m[i],
+                                     S = wel_str_combos$S_bulk[i],
+                                     Tr = wel_str_combos$Tr_bulk_m2d[i])
+          
+        } else if (analytical_model == "hunt") {
+          Qs <- intermittent_pumping(t = output_t_days,
+                                     starts = pump_schedule$StartOfMonthDays,
+                                     stops  = pump_schedule$EndOfMonthDays,
+                                     rates  = pump_schedule$Qw_m3d,
+                                     method = "hunt",
+                                     d = wel_str_combos$dist_wellToStream_m[i],
+                                     S = wel_str_combos$S_bulk[i],
+                                     Tr = wel_str_combos$Tr_bulk_m2d[i],
+                                     lmda = wel_str_combos$lmda_m2d[i])
+        } else {
+          stop("Analytical model not defined correctly; choose glover or hunt")
+        }
+        
+        # compile output
+        combo_Qa <- data.frame(SegNum = seg,
+                               WellNum = wel,
+                               time_days = output_t_days,
+                               Qa = Qs)
+        
+        if (i == 1){
+          wel_Qa <- combo_Qa
+        } else {
+          wel_Qa <- rbind(wel_Qa, combo_Qa)
+        }
+      }
+      
+      if (prox == "Adjacent") {
+        wel_out <- 
+          dplyr::left_join(wel_Qa, apportion_wel, by = c("SegNum", "WellNum")) %>% 
+          dplyr::left_join(spd[,c("day_end", "Qw_m3d")], by = c("time_days" = "day_end")) %>% 
+          dplyr::mutate(depletion_m3d = Qa*frac_depletion) %>% 
+          subset(depletion_m3d > 1e-3)
+        
+      } else if (prox == "Adjacent+Expanding"){
+        wel_out <- 
+          dplyr::left_join(apportion_wel, wel_Qa, by = c("SegNum", "WellNum", "time_days")) %>% 
+          dplyr::left_join(spd[,c("day_end", "Qw_m3d")], by = c("time_days" = "day_end")) %>% 
+          dplyr::mutate(depletion_m3d = Qa*frac_depletion) %>% 
+          subset(depletion_m3d > 1e-3)
+        wel_out$time_since_pump_start_days <- NULL
+        wel_out$SP <- NULL
+        
+      } else {
+        stop("Error in combining wel_out")
+      }
+      
+      if (start_flag){
+        depletion_all <- wel_out
+        start_flag <- F
+      } else {
+        depletion_all <- dplyr::bind_rows(depletion_all, wel_out)
+      }
+      
+      ## status update
+      print(paste0(w, " of ", length(wells_all), " ", prox, " ", apportionment, " complete, ", Sys.time()))
+      
+    } #end of apportionment equation loop
+  } #end of proximity loop
+} # end of well loop
 
 ## save output
-fname <- paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".csv")
+fname <- paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_", paste(proximity, collapse = "-"), "_", paste(apportionment_eqs, collapse = "-"), "_", paste(str_BCs, collapse = "-"), ".csv")
 depletion_all %>% 
-  dplyr::select(WellNum, SegNum, time_days, Qw_m3d, frac_depletion, Qa, depletion_m3d) %>% 
+  dplyr::select(proximity, apportionment, WellNum, SegNum, time_days, Qw_m3d, frac_depletion, Qa, depletion_m3d) %>% 
   dfDigits(digits = 3) %>% 
-  readr::write_csv(path = file.path("results", fname))
+  readr::write_csv(path = file.path(onedrive_ws, "results", fname))
 
 ## look at output
 depletion_all %>% 
