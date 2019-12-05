@@ -8,8 +8,9 @@ source(file.path("src", "paths+packages.R"))
 ## some parameters controlling which ADF results to use
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
 str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
-apportionment <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
-storage <- "ss_bulk_m"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
+apportionment_eq <- "WebSq"  # depletion apportionment equation: "Web" or "WebSq"
+storage <- "sy_bulk"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
+prox <- "Adjacent+Expanding"
 
 ## load depletion estimates
 modflow_df <- 
@@ -22,9 +23,10 @@ modflow_budget_df <-
   readr::read_csv()
 
 ADF_df <- 
-  paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".csv") %>% 
-  file.path("results", .) %>% 
-  readr::read_csv()
+  paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_Adjacent-Adjacent+Expanding_Web-WebSq_", paste(str_BCs, collapse = "-"), ".csv") %>% 
+  file.path(onedrive_ws, "results", .) %>% 
+  readr::read_csv() %>% 
+  subset(apportionment == apportionment_eq & proximity == prox)
 
 ## load well stress period data
 wells_df <- 
@@ -256,7 +258,7 @@ p.scatter.capture <-
   scale_x_continuous(name = "Monthly Mean Capture, ADF [m\u00b3/d]") +
   scale_y_continuous(name = "Monthly Mean Capture, MODFLOW [m\u00b3/d]") +
   scale_color_manual(name = "Season", values = pal.season) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_ScatterCapture_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_ScatterCapture_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
 hydroGOF::KGE(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow, method = "2012")
 hydroGOF::nrmse(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow)
@@ -270,7 +272,7 @@ p.scatter.depletion <-
   scale_x_continuous(name = "Monthly Mean Depletion, ADF [m\u00b3/d]") +
   scale_y_continuous(name = "Monthly Mean Depletion, MODFLOW [m\u00b3/d]") +
   scale_color_manual(name = "Season", values = pal.season) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_ScatterDepletion_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_ScatterDepletion_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
 hydroGOF::KGE(depletion_all$depletion_m3d_ADF, depletion_all$depletion_m3d_modflow, method = "2012")
 hydroGOF::nrmse(depletion_all$depletion_m3d_ADF, depletion_all$depletion_m3d_modflow)
@@ -291,7 +293,7 @@ fit_match_byWell %>%
   scale_x_continuous(name = "Value of Variable") +
   scale_y_continuous(name = "% of Timesteps Most Affected Segment Predicted Correctly") +
   coord_cartesian(ylim=c(0,1)) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-MatchPrcByWell_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-MatchPrcByWell_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 190, height = 120, units = "mm")
 
 ggplot(fit_match_bySP, aes(y = prc_match, x = SP, color = n_total)) +
@@ -299,8 +301,19 @@ ggplot(fit_match_bySP, aes(y = prc_match, x = SP, color = n_total)) +
   scale_x_continuous(name = "Stress Period") +
   scale_y_continuous(name = "% of Wells Most Affected Segment Predicted Correctly") +
   viridis::scale_color_viridis(name = "Wells Tested") +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-MatchPrcBySP_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-MatchPrcBySP_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 190, height = 95, units = "mm")
+
+
+
+
+
+
+
+
+
+
+
 
 fit_all_wel %>% 
   subset(season == "All") %>% 
@@ -321,7 +334,7 @@ fit_all_wel %>%
   scale_x_continuous(name = "Value of Variable") +
   scale_y_continuous(name = "KGE", limits = c(-2.5, 1)) +
  # coord_cartesian(ylim=c(-2.5,1)) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-KGEByWell_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-KGEByWell_", analytical_model, "_", storage, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 360, height = 200, units = "mm")
 
 ggplot(fit_all_wel, aes(y = KGE, x = abs(Qw_m3d_mean), color = season)) +
@@ -424,7 +437,7 @@ ggplot() +
   scale_x_continuous(name = "Stress Period", expand=c(0,0)) +
   scale_y_continuous(name = "Depletion [m\u00b3/d]") +
   labs(title = paste0("Segment-level Streamflow Depletion, Well ", w)) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_SingleWellTimeseries_Well", w, "_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_SingleWellTimeseries_Well", w, "_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 190, height = 95, units = "mm")
 
 ### inspect negative depletion values
@@ -438,7 +451,7 @@ ggplot(depletion_balance_all, aes(x=flux_pumped, y=depletion_m3d_modflow)) +
   scale_y_continuous(name = "MODFLOW Depletion") +
   geom_hline(yintercept=0, color=col.gray) +
   geom_vline(xintercept=0, color=col.gray) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Scatter-MassBalanceVsDepletion_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Scatter-MassBalanceVsDepletion_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 95, height = 95, units = "mm")
 
 sum(depletion_balance_all$depletion_m3d_modflow < 0)
@@ -466,7 +479,7 @@ ggplot() +
   geom_point(data = subset(wells_df, WellNum==w), aes(x=col, y=row), color="red") +
   scale_fill_manual(name="Segment", values=c("#ff7f00", "#984ea3", "#4daf4a", "#377eb8", "#e41a1c")) +
   coord_cartesian(xlim=c(50,100), ylim=c(100,130)) +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_SingleWellMap_Well", w, "_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_SingleWellMap_Well", w, "_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
   
 subset(modflow_df, WellNum==w & SegNum==97) %>% 
@@ -488,5 +501,5 @@ ggplot(subset(depletion_balance_segsize_all, is.finite(n_cells)), aes(x=flux_pum
   geom_hline(yintercept=0, color=col.gray) +
   geom_vline(xintercept=0, color=col.gray) +
   scale_color_discrete(name="Cells in Segment") +
-  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Scatter-MassBalanceVsDepletion+SegSize_", analytical_model, "_", storage, "_", apportionment, "_", paste(str_BCs, collapse = "-"), ".png")),
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Scatter-MassBalanceVsDepletion+SegSize_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
