@@ -53,9 +53,9 @@ dist_df <-
     WellNum = rep(wells_df$WellNum, each = dim(well_surfwat_dist)[1]),
     well_row = rep(wells_df$row, each = dim(well_surfwat_dist)[1]),
     well_col = rep(wells_df$col, each = dim(well_surfwat_dist)[1]),
-    well_elev_m = rep(wells_df$ground_m, times = dim(well_surfwat_dist)[1]),
-    well_screenTopDepth_m = rep((wells_df$ground_m - wells_df$top_m), times = dim(well_surfwat_dist)[1]),
-    well_wtd_m = rep(wells_df$WTD_SS_m, times = dim(well_surfwat_dist)[1]),
+    well_elev_m = rep(wells_df$ground_m, each = dim(well_surfwat_dist)[1]),
+    well_screenTopDepth_m = rep((wells_df$ground_m - wells_df$top_m), each = dim(well_surfwat_dist)[1]),
+    well_wtd_m = rep(wells_df$WTD_SS_m, each = dim(well_surfwat_dist)[1]),
     dist_wellToStreamPoints_m = as.numeric(well_surfwat_dist)*5280*0.3048,  # convert cells to m
     Tr_well_m2d = rep(wells_df$transmissivity_m2s*86400, each = dim(well_surfwat_dist)[1]),  # convert m2/s to m2/d
     Tr_bulk_m2d = NaN,
