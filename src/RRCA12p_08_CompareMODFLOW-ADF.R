@@ -188,8 +188,10 @@ capture_fit_all <-
   dplyr::group_by(WellNum) %>% 
   dplyr::summarize(KGE = hydroGOF::KGE(capture_m3d_ADF, capture_m3d_modflow, method = "2012"),
                    RMSE = hydroGOF::rmse(capture_m3d_ADF, capture_m3d_modflow),
-                   NRMSE = hydroGOF::nrmse(capture_m3d_ADF, capture_m3d_modflow),
-                   R2 = R2(capture_m3d_ADF, capture_m3d_modflow)) %>% 
+                   NRMSE = hydroGOF::nrmse(capture_m3d_ADF, capture_m3d_modflow, norm = "maxmin"),
+                   MAE = hydroGOF::mae(capture_m3d_ADF, capture_m3d_modflow),
+                   R2 = R2(capture_m3d_ADF, capture_m3d_modflow),
+                   capture_m3d_max = max(capture_m3d_modflow, na.rm = T)) %>% 
   dplyr::mutate(season = "All", 
                 metric = "Capture")
 
@@ -199,8 +201,10 @@ depletion_fit_all <-
   dplyr::group_by(WellNum) %>% 
   dplyr::summarize(KGE = hydroGOF::KGE(depletion_m3d_ADF, depletion_m3d_modflow, method = "2012"),
                    RMSE = hydroGOF::rmse(depletion_m3d_ADF, depletion_m3d_modflow),
-                   NRMSE = hydroGOF::nrmse(depletion_m3d_ADF, depletion_m3d_modflow),
-                   R2 = R2(depletion_m3d_ADF, depletion_m3d_modflow)) %>% 
+                   NRMSE = hydroGOF::nrmse(depletion_m3d_ADF, depletion_m3d_modflow, norm = "maxmin"),
+                   MAE = hydroGOF::mae(depletion_m3d_ADF, depletion_m3d_modflow),
+                   R2 = R2(depletion_m3d_ADF, depletion_m3d_modflow),
+                   depletion_m3d_max = max(depletion_m3d_modflow, na.rm = T)) %>% 
   dplyr::mutate(season = "All",
                 metric = "Depletion")
 
@@ -211,8 +215,10 @@ capture_fit_season <-
   dplyr::group_by(WellNum, season) %>% 
   dplyr::summarize(KGE = hydroGOF::KGE(capture_m3d_ADF, capture_m3d_modflow, method = "2012"),
                    RMSE = hydroGOF::rmse(capture_m3d_ADF, capture_m3d_modflow),
-                   NRMSE = hydroGOF::nrmse(capture_m3d_ADF, capture_m3d_modflow),
-                   R2 = R2(capture_m3d_ADF, capture_m3d_modflow)) %>% 
+                   NRMSE = hydroGOF::nrmse(capture_m3d_ADF, capture_m3d_modflow, norm = "maxmin"),
+                   MAE = hydroGOF::mae(capture_m3d_ADF, capture_m3d_modflow),
+                   R2 = R2(capture_m3d_ADF, capture_m3d_modflow),
+                   capture_m3d_max = max(capture_m3d_modflow, na.rm = T)) %>% 
   dplyr::mutate(metric = "Capture")
 
 depletion_fit_season <-
@@ -221,8 +227,9 @@ depletion_fit_season <-
   dplyr::group_by(WellNum, season) %>% 
   dplyr::summarize(KGE = hydroGOF::KGE(depletion_m3d_ADF, depletion_m3d_modflow, method = "2012"),
                    RMSE = hydroGOF::rmse(depletion_m3d_ADF, depletion_m3d_modflow),
-                   NRMSE = hydroGOF::nrmse(depletion_m3d_ADF, depletion_m3d_modflow),
-                   R2 = R2(depletion_m3d_ADF, depletion_m3d_modflow)) %>% 
+                   NRMSE = hydroGOF::nrmse(depletion_m3d_ADF, depletion_m3d_modflow, norm = "maxmin"),
+                   R2 = R2(depletion_m3d_ADF, depletion_m3d_modflow),
+                   depletion_m3d_max = max(depletion_m3d_modflow, na.rm = T)) %>% 
   dplyr::mutate(metric = "Depletion")
 
 # combine all fit metrics
@@ -261,7 +268,9 @@ p.scatter.capture <-
   ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_ScatterCapture_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
 hydroGOF::KGE(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow, method = "2012")
-hydroGOF::nrmse(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow)
+hydroGOF::rmse(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow)
+hydroGOF::nrmse(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow, norm = "maxmin")
+hydroGOF::mae(capture_all$capture_m3d_ADF, capture_all$capture_m3d_modflow)
 
 # depletion scatter
 p.scatter.depletion <- 
@@ -275,7 +284,8 @@ p.scatter.depletion <-
   ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_ScatterDepletion_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
 hydroGOF::KGE(depletion_all$depletion_m3d_ADF, depletion_all$depletion_m3d_modflow, method = "2012")
-hydroGOF::nrmse(depletion_all$depletion_m3d_ADF, depletion_all$depletion_m3d_modflow)
+hydroGOF::rmse(depletion_all$depletion_m3d_ADF, depletion_all$depletion_m3d_modflow)
+hydroGOF::nrmse(depletion_all$depletion_m3d_ADF, depletion_all$depletion_m3d_modflow, norm = "maxmin")
 
 ## plot fit as function of well characteristics
 fit_match_byWell %>% 
@@ -307,13 +317,113 @@ ggplot(fit_match_bySP, aes(y = prc_match, x = SP, color = n_total)) +
 
 
 
+# only look at wells with capture reaching at least 1% of mean pumping rate
+fit_all_wel %>% 
+  subset(metric == "Capture" & capture_m3d_max/Qw_m3d_mean > 0.01 & season == "All") %>% 
+  dplyr::mutate(
+    logTransmissivity_m2s = log10(transmissivity_m2s),
+    Qw_m3d_abs = abs(Qw_m3d_mean),
+    distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, KGE, metric, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
+  reshape2::melt(id = c("WellNum", "KGE", "metric")) %>% 
+  ggplot(aes(y = KGE, x = value)) +
+  geom_hline(yintercept = -0.41, color = col.gray) +
+  geom_point() +
+  facet_wrap(~variable, scales = "free_x", labeller = as_labeller(labs_wellProperties)) +
+  stat_smooth(method = "lm") +
+  scale_x_continuous(name = "Value of Variable") +
+  scale_y_continuous(name = "KGE", limits = c(-2.5, 1)) +
+  # coord_cartesian(ylim=c(-2.5,1)) +
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-OnlyBigWells-Capture_KGEByWell_", analytical_model, "_", storage, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
+         width = 150, height = 150, units = "mm") + 
+  NULL
+
+fit_match_byWell %>% 
+  subset(metric == "Capture" & capture_m3d_max/Qw_m3d_mean > 0.01 & season == "All") %>% 
+  dplyr::mutate(
+    logTransmissivity_m2s = log10(transmissivity_m2s),
+    Qw_m3d_abs = abs(Qw_m3d_mean),
+    distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, prc_match, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
+  reshape2::melt(id = c("WellNum", "prc_match")) %>% 
+  ggplot(aes(y = prc_match, x = value)) +
+  geom_point() +
+  facet_wrap(~variable, scales = "free_x", labeller = as_labeller(labs_wellProperties)) +
+  stat_smooth(method = "lm") +
+  scale_x_continuous(name = "Value of Variable") +
+  scale_y_continuous(name = "% of Timesteps Most Affected Segment Predicted Correctly") +
+  coord_cartesian(ylim=c(0,1)) +
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-MatchPrcByWell_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
+         width = 190, height = 120, units = "mm")
 
 
 
 
 
+fit_all_wel %>% 
+  subset(season == "All") %>% 
+  dplyr::mutate(
+    logTransmissivity_m2s = log10(transmissivity_m2s),
+    Qw_m3d_abs = abs(Qw_m3d_mean),
+    distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, RMSE, metric, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
+  reshape2::melt(id = c("WellNum", "RMSE", "metric")) %>% 
+  ggplot(aes(y = RMSE, x = value)) +
+  geom_point() +
+  facet_grid(metric~variable, scales = "free", labeller=as_labeller(c(labs_wellProperties,
+                                                                      "Depletion"="Depletion", 
+                                                                      "Capture"="Capture"))) +
+  stat_smooth(method = "lm") +
+  scale_x_continuous(name = "Value of Variable") +
+  scale_y_continuous(name = "RMSE") +
+  # coord_cartesian(ylim=c(-2.5,1)) +
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-RMSEByWell_", analytical_model, "_", storage, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
+         width = 360, height = 200, units = "mm")
 
+fit_all_wel %>% 
+  subset(season == "All") %>% 
+  dplyr::mutate(
+    logTransmissivity_m2s = log10(transmissivity_m2s),
+    Qw_m3d_abs = abs(Qw_m3d_mean),
+    distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, NRMSE, metric, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
+  reshape2::melt(id = c("WellNum", "NRMSE", "metric")) %>% 
+  ggplot(aes(y = NRMSE, x = value)) +
+  geom_point() +
+  facet_grid(metric~variable, scales = "free", labeller=as_labeller(c(labs_wellProperties,
+                                                                      "Depletion"="Depletion", 
+                                                                      "Capture"="Capture"))) +
+  stat_smooth(method = "lm") +
+  scale_x_continuous(name = "Value of Variable") +
+  scale_y_continuous(name = "NRMSE") +
+  # coord_cartesian(ylim=c(-2.5,1)) +
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-NRMSEByWell_", analytical_model, "_", storage, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
+         width = 360, height = 200, units = "mm")
 
+fit_all_wel %>% 
+  subset(season == "All") %>% 
+  dplyr::mutate(
+    logTransmissivity_m2s = log10(transmissivity_m2s),
+    Qw_m3d_abs = abs(Qw_m3d_mean),
+    distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
+    distToClosestEVT_km = distToClosestEVT_m/1000) %>% 
+  dplyr::select(WellNum, R2, metric, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
+  reshape2::melt(id = c("WellNum", "R2", "metric")) %>% 
+  ggplot(aes(y = R2, x = value)) +
+  geom_point() +
+  facet_grid(metric~variable, scales = "free", labeller=as_labeller(c(labs_wellProperties,
+                                                                      "Depletion"="Depletion", 
+                                                                      "Capture"="Capture"))) +
+  stat_smooth(method = "lm") +
+  scale_x_continuous(name = "Value of Variable") +
+  scale_y_continuous(name = "R2") +
+  # coord_cartesian(ylim=c(-2.5,1)) +
+  ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-R2ByWell_", analytical_model, "_", storage, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
+         width = 360, height = 200, units = "mm")
 
 fit_all_wel %>% 
   subset(season == "All") %>% 

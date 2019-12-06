@@ -209,7 +209,8 @@ wells <-
   wel_spd %>% 
   dplyr::left_join(df_time, by="kstpkper") %>% 
   dplyr::group_by(row, col) %>% 
-  dplyr::summarize(Qw_acreFeetDay_mean = mean(Qw_acreFeetDay),
+  dplyr::summarize(Qw_acreFeetDay_max = min(Qw_acreFeetDay),
+                   Qw_acreFeetDay_mean = mean(Qw_acreFeetDay),
                    yr_pump_start = min(year),
                    yr_pump_end = max(year),
                    yr_pump_length = length(unique(year))) %>% 
@@ -454,8 +455,9 @@ wells_all %>%
             ground_m = ground*0.3048,
             head_SS_m = head_SS*0.3048,
             head_end_m = head_end*0.3048,
-            Qw_m3d_mean = Qw_acreFeetDay_mean*1233.48) %>% 
-  dplyr::select(WellNum, row, col, yr_pump_start, yr_pump_end, Qw_m3d_mean, hk_ms,
+            Qw_m3d_mean = abs(Qw_acreFeetDay_mean)*1233.48,
+            Qw_m3d_max = abs(Qw_acreFeetDay_max)*1233.48) %>% 
+  dplyr::select(WellNum, row, col, yr_pump_start, yr_pump_end, Qw_m3d_mean, Qw_m3d_max, hk_ms,
                 ss_m, sy, distToClosestSurfwat_m, distToClosestEVT_m, ground_m, top_m, botm_m, strt_m, rech_ms,
                 head_SS_m, head_end_m, sample_lhs) %>% 
   readr::write_csv(file.path("results", "RRCA12p_03_WellSample.csv"))
