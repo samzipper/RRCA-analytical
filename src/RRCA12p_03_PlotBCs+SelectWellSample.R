@@ -7,14 +7,14 @@ source(file.path("src", "paths+packages.R"))
 wel_spd <- 
   file.path(model_ws_simple, "RRCA12p_WEL_StressPeriodData.csv") %>% 
   readr::read_csv() %>% 
-  transform(Qw_acreFeetDay = 86400*Qw/43560)
+  dplyr::mutate(Qw_acreFeetDay = 86400*Qw/43560)
 wel_spd[,c("lay", "row", "col")] <- wel_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 str_spd <- 
   file.path(model_ws_simple, "RRCA12p_STR_StressPeriod1.csv") %>% 
   readr::read_csv() %>% 
-  transform(cond_proportion = cond/cond_total,
-            BC = "STR")
+  dplyr::mutate(cond_proportion = cond/cond_total,
+                BC = "STR")
 str_spd[,c("lay", "row", "col")] <- str_spd[,c("lay", "row", "col")]+1  # python has 0-based indexing
 
 budget_spd <- 
@@ -152,8 +152,8 @@ sp_last  <- 2000
 df_time <- 
   tibble::tibble(year = rep(seq(sp_first, sp_last), each=12),
                  month = rep(seq(1,12), times=(1+sp_last-sp_first))) %>% 
-  transform(date_mid = lubridate::ymd(paste(year, month, round(lubridate::days_in_month(month)/2), sep="-")),
-            sp = seq(1,length(year))) %>% 
+  dplyr::mutate(date_mid = lubridate::ymd(paste(year, month, round(lubridate::days_in_month(month)/2), sep="-")),
+                sp = seq(1,length(year))) %>% 
   dplyr::left_join(sp_data, by="sp")
 
 ## monthly budget
@@ -163,7 +163,7 @@ monthly_budget <-
   dplyr::select(-PERCENT_DISCREPANCY, -kstpkper, -TOTAL_IN, -TOTAL_OUT, -`IN-OUT`) %>% 
   reshape2::melt(id=c("year", "month", "date_mid", "sp"), value.name="flux_ft3s", variable.name="store") %>% 
   subset(is.finite(year)) %>% 
-  transform(flux_acreFeetMonth = 86400*days_in_month(month)*flux_ft3s/43560)
+  dplyr::mutate(flux_acreFeetMonth = 86400*days_in_month(month)*flux_ft3s/43560)
 
 yearly_budget <- 
   monthly_budget %>% 
@@ -186,7 +186,7 @@ monthly_Qw <-
   dplyr::left_join(df_time, by="kstpkper") %>% 
   dplyr::group_by(year, month, date_mid, sp) %>% 
   dplyr::summarize(Qw_acreFeetDaySum = sum(Qw_acreFeetDay)) %>% 
-  transform(Qw_acreFeetMonth = Qw_acreFeetDaySum*lubridate::days_in_month(date_mid))
+  dplyr::mutate(Qw_acreFeetMonth = Qw_acreFeetDaySum*lubridate::days_in_month(date_mid))
 
 yearly_Qw <- 
   monthly_Qw %>% 
@@ -370,16 +370,16 @@ wells_all_norm <-
              distToClosestSurfwat_cells = fnorm(wells_all$distToClosestSurfwat_cells, dist_range),
              distToClosestEVT_cells = fnorm(wells_all$distToClosestEVT_cells, evt_range),
              WTD_SS = fnorm(wells_all$WTD_SS, WTD_range)) %>% #,
-             #logHk = fnorm(wells_all$logHk, logHk_range),
-             #sat_thickness = fnorm(wells_all$sat_thickness, b_range)) %>% 
+  #logHk = fnorm(wells_all$logHk, logHk_range),
+  #sat_thickness = fnorm(wells_all$sat_thickness, b_range)) %>% 
   subset(Qw_acreFeetDay_mean >= 0 & Qw_acreFeetDay_mean <= 1 &
            logTransmissivity_ft2s >= 0 & logTransmissivity_ft2s <= 1 &
            ss >= 0 & ss <= 1 &
            distToClosestSurfwat_cells >= 0 & distToClosestSurfwat_cells <= 1 &
            distToClosestEVT_cells >= 0 & distToClosestEVT_cells <= 1 &
            WTD_SS >= 0 & WTD_SS <= 1)# &
-           #logHk >= 0 & logHk <= 1 &
-           #sat_thickness >= 0 & sat_thickness <= 1)
+#logHk >= 0 & logHk <= 1 &
+#sat_thickness >= 0 & sat_thickness <= 1)
 
 # subset wells_all based on percentile
 wells_all <- subset(wells_all, WellNum %in% wells_all_norm$WellNum)
