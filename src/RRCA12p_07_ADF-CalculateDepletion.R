@@ -7,7 +7,7 @@ require(streamDepletr)
 ## some parameters controlling ADF calculations
 proximity <- c("Adjacent", "Adjacent+Expanding")
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
-str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
+str_BCs <- c("STR", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
 apportionment_eqs <- c("Web", "WebSq")  # depletion apportionment equation: "Web" or "WebSq"
 storage <- "ss_bulk_m"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
 min_frac <- 0.01  # minimum fraction to consider
@@ -314,13 +314,3 @@ depletion_all %>%
   dplyr::select(proximity, apportionment, WellNum, SegNum, time_days, Qw_m3d, frac_depletion, Qa, depletion_m3d) %>% 
   dfDigits(digits = 3) %>% 
   readr::write_csv(path = file.path(onedrive_ws, "results", fname))
-
-## look at output
-depletion_all %>% 
-  subset(WellNum == 11233) %>% 
-  dplyr::group_by(WellNum, time_days) %>% 
-  dplyr::summarize(Qw = mean(Qw_m3d),
-                   Qs = sum(depletion_m3d)) %>% 
-  ggplot(aes(x = time_days)) +
-  geom_line(aes(y = Qs), color = "red") + 
-  geom_line(aes(y = Qw), color = "blue")

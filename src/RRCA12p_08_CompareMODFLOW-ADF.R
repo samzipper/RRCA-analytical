@@ -50,17 +50,34 @@ wells_all <- unique(wells_df$WellNum)
 for (i in 1:length(wells_all)){
   w <- wells_all[i]
   SP_start <- min(modflow_budget_df$SP[modflow_budget_df$WellNum == w & modflow_budget_df$variable == "WEL_NET"])  # when pumping starts
-
-  # check for outliers in change in mass balance error
+  
+  # two-step outlier check
+  #  step 1: anomalous mass balance error
   df_bal_change <- tibble::tibble(SP = modflow_budget_df$SP[modflow_budget_df$WellNum == w & modflow_budget_df$variable == "BALANCE_NET"],
                                   BalChange = modflow_budget_df$flux_change[modflow_budget_df$WellNum == w & modflow_budget_df$variable == "BALANCE_NET"])
   SP_outliers <- df_bal_change$SP[tsoutliers::tso(ts(df_bal_change$BalChange), type = "AO", cval = 5)[["outliers"]]$ind]
+  # ggplot(df_bal_change, aes(x = SP, y = BalChange)) + geom_point()
+  
+  #  step 2: negative depletion exceeding 1% of max pumping rate
+  Qw_max <- wells_df$Qw_m3d_max[wells_df$WellNum == w]
+  w_modflow_full <- 
+    modflow_df %>% 
+    subset(WellNum == w)
+  SP_outliers <- c(SP_outliers, w_modflow_full$SP[which(w_modflow_full$depletion_m3d/Qw_max < -0.01)])
+  
+  #  step 3: negative capture exceeding 1% of max pumping rate
+  capture_modflow_full <-
+    w_modflow_full %>% 
+    dplyr::group_by(SP) %>% 
+    dplyr::summarize(capture_m3d = sum(depletion_m3d))
+  SP_outliers <- c(SP_outliers, capture_modflow_full$SP[which(capture_modflow_full$capture_m3d/Qw_max < -0.01)])
+  
+  # identify where to stop analysis
   SP_end <- min(c(Inf, SP_outliers))  # will use entire timeseries if no outliers found
   
   ## compile depletion estimates
   w_modflow <- 
-    modflow_df %>% 
-    subset(WellNum == w) %>% 
+    w_modflow_full %>% 
     subset(SP >= SP_start & SP < SP_end) %>% 
     tidyr::replace_na(list("depletion_m3d" = 0)) %>% 
     dplyr::select(SP, SegNum, depletion_m3d)
@@ -69,7 +86,7 @@ for (i in 1:length(wells_all)){
     ADF_df %>% 
     subset(WellNum == w) %>% 
     dplyr::right_join(RRCA12p_time, by = c("time_days" = "day_end")) %>% 
-    subset(SP >= SP_start & SP < SP_end) %>% 
+    subset(SP >= SP_start & SP < SP_end & is.finite(SegNum)) %>% 
     dplyr::select(SP, SegNum, depletion_m3d)
   
   w_depletion <- 
@@ -82,16 +99,12 @@ for (i in 1:length(wells_all)){
   ## compile capture estimates
   w_modflow_capture <- 
     w_modflow %>% 
-    #modflow_df %>% 
-    #subset(WellNum == w) %>% 
     dplyr::group_by(SP) %>% 
     dplyr::summarize(capture_m3d = sum(depletion_m3d)) %>% 
     dplyr::ungroup()
   
   w_ADF_capture <- 
     w_ADF %>% 
-    #ADF_df %>% 
-    #subset(WellNum == w) %>% 
     dplyr::group_by(SP) %>% 
     dplyr::summarize(capture_m3d = sum(depletion_m3d)) %>% 
     dplyr::ungroup()
@@ -130,53 +143,24 @@ for (i in 1:length(wells_all)){
   if (i == 1){
     capture_all <- w_capture
     depletion_all <- w_depletion
+    mostAffected_all <- w_mostAffected
     outliers_all <- tibble::tibble(WellNum = w, 
                                    SP = SP_outliers)
-    mostAffected_all <- w_mostAffected
   } else {
     capture_all <- dplyr::bind_rows(capture_all, w_capture)
     depletion_all <- dplyr::bind_rows(depletion_all, w_depletion)
-    outliers_all <- dplyr::bind_rows(outliers_all, tibble::tibble(WellNum = w, 
-                                                                  SP = SP_outliers))
     mostAffected_all <- dplyr::bind_rows(mostAffected_all, w_mostAffected)
+    outliers_all <- dplyr::bind_rows(outliers_all, 
+                                     tibble::tibble(WellNum = w, 
+                                                    SP = SP_outliers))
   }
   
   ## status update
   print(paste0(i, " of ", length(wells_all), " complete, ", Sys.time()))
-  
-  # ## look at plots for single well
-  # w_spd <-
-  #   wel_spd %>%
-  #   subset(WellNum == w) %>%
-  #   dplyr::right_join(RRCA12p_time, by = "kstpkper") %>%
-  #   subset(year >= yr_start) %>%
-  #   tidyr::replace_na(list("Qw_m3d" = 0))
-  # 
-  # # capture timeseries
-  # ggplot() +
-  #   geom_line(data = w_spd, aes(x = date_mid, y = Qw_m3d), color = "black") +
-  #   geom_line(data = w_modflow, aes(x = date_mid, y = capture_m3d), color = "red") +
-  #   geom_line(data = w_ADF, aes(x = date_mid, y = capture_m3d), color = "blue") +
-  #   scale_x_date(name = "Date [monthly]", expand = c(0,0),
-  #                limits = c(lubridate::ymd("1950-01-01"), max(RRCA12p_time$date_mid))) +
-  #   scale_y_continuous(name = "Flux [m\u00b3/d]")
-  # 
-  # # capture scatter
-  # dplyr::left_join(w_capture, RRCA12p_time, by = "SP") %>% 
-  #   ggplot(aes(x = capture_m3d_ADF, y = capture_m3d_modflow, color = season)) +
-  #   geom_point() +
-  #   geom_abline(intercept = 0, slope = 1, color = "black") +
-  #   scale_x_continuous(name = "Monthly Mean Capture, ADF [m\u00b3/d]") +
-  #   scale_y_continuous(name = "Monthly Mean Capture, MODFLOW [m\u00b3/d]")
-  # 
-  # # depletion scatter
-  # dplyr::left_join(w_depletion, RRCA12p_time, by = "SP") %>% 
-  #   ggplot(aes(x = depletion_m3d_ADF, y = depletion_m3d_modflow, color = season)) +
-  #   geom_point() +
-  #   geom_abline(intercept = 0, slope = 1, color = "black") +
-  #   scale_x_continuous(name = "Monthly Mean Depletion, ADF [m\u00b3/d]") +
-  #   scale_y_continuous(name = "Monthly Mean Depletion, MODFLOW [m\u00b3/d]")
 }
+
+## how many outliers?
+length(unique(outliers_all$WellNum))
 
 ## calculate fit metrics
 min_value_for_fit <- -Inf
@@ -438,12 +422,12 @@ fit_all_wel %>%
   geom_hline(yintercept = -0.41, color = col.gray) +
   geom_point() +
   facet_grid(metric~variable, scales = "free", labeller=as_labeller(c(labs_wellProperties,
-                                                          "Depletion"="Depletion", 
-                                                          "Capture"="Capture"))) +
+                                                                      "Depletion"="Depletion", 
+                                                                      "Capture"="Capture"))) +
   stat_smooth(method = "lm") +
   scale_x_continuous(name = "Value of Variable") +
   scale_y_continuous(name = "KGE", limits = c(-2.5, 1)) +
- # coord_cartesian(ylim=c(-2.5,1)) +
+  # coord_cartesian(ylim=c(-2.5,1)) +
   ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_Fit-KGEByWell_", analytical_model, "_", storage, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 360, height = 200, units = "mm")
 
@@ -584,14 +568,14 @@ seg_size <-
 w_surfwat <- subset(surfwat_df, SegNum %in% w_modflow$SegNum)
 
 ggplot() +
- # geom_tile(data = surfwat_df, aes(x = col, y = row), fill = col.gray) +
+  # geom_tile(data = surfwat_df, aes(x = col, y = row), fill = col.gray) +
   geom_tile(data = subset(surfwat_df, SegNum %in% w_modflow$SegNum), aes(x = col, y = row, fill = factor(SegNum)), alpha=0.5, color="black") +
   geom_point(data = subset(wells_df, WellNum==w), aes(x=col, y=row), color="red") +
   scale_fill_manual(name="Segment", values=c("#ff7f00", "#984ea3", "#4daf4a", "#377eb8", "#e41a1c")) +
   coord_cartesian(xlim=c(50,100), ylim=c(100,130)) +
   ggsave(file.path(onedrive_ws, "plots", paste0("RRCA12p_08_CompareMODFLOW-ADF_SingleWellMap_Well", w, "_", analytical_model, "_", storage, "_", prox, "_", apportionment_eq, "_", paste(str_BCs, collapse = "-"), ".png")),
          width = 120, height = 95, units = "mm")
-  
+
 subset(modflow_df, WellNum==w & SegNum==97) %>% 
   ggplot(aes(x=SP, y = leakage_m3d_baseline, color=depletion_m3d)) + 
   geom_point() +
@@ -604,7 +588,7 @@ depletion_balance_segsize_all <-
 
 
 ggplot(subset(depletion_balance_segsize_all, is.finite(n_cells)), aes(x=flux_pumped, y=depletion_m3d_modflow, 
-                                          color=cut(n_cells, breaks=c(0,1,5,10,25,100), include.lowest=T))) + 
+                                                                      color=cut(n_cells, breaks=c(0,1,5,10,25,100), include.lowest=T))) + 
   geom_point(shape=21) +
   scale_x_continuous(name = "Mass Balance Error (pumped scenario)") +
   scale_y_continuous(name = "MODFLOW Depletion") +
