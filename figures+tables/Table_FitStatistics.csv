@@ -1,0 +1,10 @@
+analytical,proximity,apportionment,prc_match,MAD_match_norm,KGE_depletion,MAD_capture_norm
+AnalyticalOnly,AnalyticalOnly,AnalyticalOnly,53.936,0.06,0.555,0.044
+glover,Adjacent,InvDist,50.705,0.056,0.701,0.039
+glover,Adjacent,InvDistSq,50.798,0.054,0.695,0.04
+glover,Adjacent,Web,52.441,0.045,0.699,0.033
+glover,Adjacent,WebSq,53.865,0.048,0.767,0.037
+glover,Adjacent+Expanding,InvDist,50.022,0.057,0.697,0.039
+glover,Adjacent+Expanding,InvDistSq,50.114,0.053,0.737,0.039
+glover,Adjacent+Expanding,Web,52.494,0.047,0.671,0.032
+glover,Adjacent+Expanding,WebSq,53.871,0.048,0.779,0.036

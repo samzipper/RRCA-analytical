@@ -7,8 +7,8 @@ require(streamDepletr)
 ## some parameters controlling ADF calculations
 proximity <- c("Adjacent", "Adjacent+Expanding")
 analytical_model <- "glover"  # analytical model to use: "hunt" or "glover"
-str_BCs <- c("STR", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
-apportionment_eqs <- c("Web", "WebSq")  # depletion apportionment equation: "Web" or "WebSq"
+str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DRN", "CHB")
+apportionment_eqs <- c("Web", "WebSq", "InvDist", "InvDistSq")  # depletion apportionment equation: "Web" or "WebSq" or "InvDistSq"
 storage <- "ss_bulk_m"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
 min_frac <- 0.01  # minimum fraction to consider
 
@@ -114,26 +114,51 @@ for (w in 1:length(wells_all)){
         web_exp <- 1 
       } else if (apportionment == "WebSq") { 
         web_exp <- 2 
+      } else if (apportionment == "InvDist") { 
+        web_exp <- 1
+      } else if (apportionment == "InvDistSq") { 
+        web_exp <- 2 
       } else { 
-        stop("Depletion apportionment not defined correctly; choose Web or WebSq") 
+        stop("Depletion apportionment not defined correctly; choose Web or WebSq or InvDistSq") 
       } 
       
       if (prox == "Adjacent"){
         # apportion using only segments identified using Theissen Polygons
-        apportion_wel <- 
-          str_all_df %>% 
-          dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
-          subset(SegNum %in% wel_apportion_poly$SegNum) %>% 
-          streamDepletr::apportion_web(., 
-                                       w = web_exp,
-                                       min_frac = min_frac,
-                                       reach_name = "SegNum",
-                                       dist_name = "dist_wellToStreamPoints_m") %>% 
-          magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
-          dplyr::mutate(WellNum = wel,
-                        proximity = prox, 
-                        apportionment = apportionment,
-                        analytical = analytical_model)
+        
+        if (apportionment %in% c("InvDist", "InvDistSq")){
+          # inverse distance and inverse distance squared
+          apportion_wel <- 
+            str_all_df %>% 
+            dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
+            subset(SegNum %in% wel_apportion_poly$SegNum) %>% 
+            streamDepletr::apportion_inverse(., 
+                                             w = web_exp,
+                                             min_frac = min_frac,
+                                             reach_name = "SegNum",
+                                             dist_name = "dist_wellToStreamPoints_m") %>% 
+            magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
+            dplyr::mutate(WellNum = wel,
+                          proximity = prox, 
+                          apportionment = apportionment,
+                          analytical = analytical_model)
+          
+        } else {
+          # web and web squared
+          apportion_wel <- 
+            str_all_df %>% 
+            dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
+            subset(SegNum %in% wel_apportion_poly$SegNum) %>% 
+            streamDepletr::apportion_web(., 
+                                         w = web_exp,
+                                         min_frac = min_frac,
+                                         reach_name = "SegNum",
+                                         dist_name = "dist_wellToStreamPoints_m") %>% 
+            magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
+            dplyr::mutate(WellNum = wel,
+                          proximity = prox, 
+                          apportionment = apportionment,
+                          analytical = analytical_model)
+        }
         
         
       } else if (prox == "Adjacent+Expanding"){
@@ -178,30 +203,54 @@ for (w in 1:length(wells_all)){
           if (max_dist > max_dist_prev) max_dist_prev <- max_dist
           
           # apportion
-          wel_apportion_web <- 
-            str_all_df %>% 
-            dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
-            subset((dist_wellToStreamPoints_m <= max_dist) | (SegNum %in% wel_apportion_poly$SegNum)) %>% 
-            streamDepletr::apportion_web(., 
-                                         w = web_exp,
-                                         min_frac = min_frac,
-                                         reach_name = "SegNum",
-                                         dist_name = "dist_wellToStreamPoints_m") %>% 
-            magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
-            dplyr::mutate(WellNum = wel,
-                          time_days = time_days,
-                          time_since_pump_start_days = time_since_pump_start,
-                          SP = sp,
-                          proximity = prox, 
-                          apportionment = apportionment,
-                          analytical = analytical_model)
+          if (apportionment %in% c("InvDist", "InvDistSq")){
+            # inverse distance and inverse distance squared
+            wel_apportion_sp <- 
+              str_all_df %>% 
+              dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
+              subset((dist_wellToStreamPoints_m <= max_dist) | (SegNum %in% wel_apportion_poly$SegNum)) %>% 
+              streamDepletr::apportion_inverse(., 
+                                               w = web_exp,
+                                               min_frac = min_frac,
+                                               reach_name = "SegNum",
+                                               dist_name = "dist_wellToStreamPoints_m") %>% 
+              magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
+              dplyr::mutate(WellNum = wel,
+                            time_days = time_days,
+                            time_since_pump_start_days = time_since_pump_start,
+                            SP = sp,
+                            proximity = prox, 
+                            apportionment = apportionment,
+                            analytical = analytical_model)
+            
+          } else {
+            # web and web squared
+            wel_apportion_sp <- 
+              str_all_df %>% 
+              dplyr::select(SegNum, dist_wellToStreamPoints_m) %>% 
+              subset((dist_wellToStreamPoints_m <= max_dist) | (SegNum %in% wel_apportion_poly$SegNum)) %>% 
+              streamDepletr::apportion_web(., 
+                                           w = web_exp,
+                                           min_frac = min_frac,
+                                           reach_name = "SegNum",
+                                           dist_name = "dist_wellToStreamPoints_m") %>% 
+              magrittr::set_colnames(c("SegNum", "frac_depletion")) %>% 
+              dplyr::mutate(WellNum = wel,
+                            time_days = time_days,
+                            time_since_pump_start_days = time_since_pump_start,
+                            SP = sp,
+                            proximity = prox, 
+                            apportionment = apportionment,
+                            analytical = analytical_model)
+          }
+          
           
           ## combine output
           if (wel_start_flag){
-            apportion_wel <- wel_apportion_web
+            apportion_wel <- wel_apportion_sp
             wel_start_flag <- F
           } else {
-            apportion_wel <- rbind(apportion_wel, wel_apportion_web)
+            apportion_wel <- rbind(apportion_wel, wel_apportion_sp)
           }
         }
         
