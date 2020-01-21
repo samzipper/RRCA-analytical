@@ -5,6 +5,7 @@ library(tidyverse)
 library(reshape2)
 library(sf)
 library(lubridate)
+library(multcompView)
 
 # path to folder on computer where large RRCA model input and output files live
 #  these are version RRCA12p downloaded from http://www.republicanrivercompact.org/v12p/html/ch00.html
@@ -88,4 +89,18 @@ R2 <- function(sim, obs) {
   if (length(sim) != length(obs)) stop("vectors not the same size")
   return((sum((obs-mean(obs))*(sim-mean(sim)))/
             ((sum((obs-mean(obs))^2)^0.5)*(sum((sim-mean(sim))^2)^0.5)))^2)
+}
+
+## statistically significant differences between classes
+generate_label_df <- function(TUKEY, variable){
+  # function from: http://www.r-graph-gallery.com/84-tukey-test/
+  
+  # Extract labels and factor levels from Tukey post-hoc 
+  Tukey.levels <- TUKEY[[variable]][,4]
+  Tukey.labels <- data.frame(multcompLetters(Tukey.levels)['Letters'])
+  
+  #I need to put the labels in the same order as in the boxplot :
+  Tukey.labels$treatment=rownames(Tukey.labels)
+  Tukey.labels=Tukey.labels[order(Tukey.labels$treatment) , ]
+  return(Tukey.labels)
 }

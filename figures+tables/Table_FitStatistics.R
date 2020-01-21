@@ -77,6 +77,12 @@ capture_all <-  dplyr::bind_rows(capture_all, capture_anl)
 depletion_all <- dplyr::bind_rows(depletion_all, depletion_anl)
 mostAffected_all <- dplyr::bind_rows(mostAffected_all, mostAffected_anl)
 
+# make variables for combined 
+capture_all$ADF <- paste0(capture_all$proximity, "_", capture_all$apportionment)
+depletion_all$ADF <- paste0(depletion_all$proximity, "_", depletion_all$apportionment)
+mostAffected_all$ADF <- paste0(mostAffected_all$proximity, "_", mostAffected_all$apportionment)
+
+
 ## fit statistics
 # number of years (from end of simulation) to include in table
 n_yrs <- 20
@@ -87,21 +93,23 @@ first_SP <- min(RRCA12p_time$SP[RRCA12p_time$year >= first_yr])
 match_prc_SP <- 
   mostAffected_all %>% 
   subset(SP >= first_SP) %>% 
-  dplyr::group_by(analytical, proximity, apportionment, SP) %>% 
+  dplyr::group_by(ADF, SP) %>% 
   dplyr::summarize(n_total = n(),
                    n_match = sum(SegNum_modflow == SegNum_ADF)) %>% 
   dplyr::mutate(prc_match_SP = n_match/n_total)
 
 match_prc <- 
   match_prc_SP %>% 
-  dplyr::group_by(analytical, proximity, apportionment) %>% 
+  dplyr::group_by(ADF) %>% 
   dplyr::summarize(prc_match = 100*mean(prc_match_SP))
+
+match_prc_diffs <- generate_label_df(TukeyHSD(aov(lm(prc_match_SP ~ ADF, data = match_prc_SP))), "ADF")
 
 # calculate MAD, most affected segment 
 match_MAD_SP <- 
   mostAffected_all %>% 
   subset(SP >= first_SP) %>% 
-  dplyr::group_by(analytical, proximity, apportionment, SP) %>% 
+  dplyr::group_by(ADF, SP) %>% 
   dplyr::summarize(MAD_SP = hydroGOF::mae(depletion_m3d_ADF, depletion_m3d_modflow),
                    depletion_min_modflow = min(depletion_m3d_modflow),
                    depletion_max_modflow = max(depletion_m3d_modflow)) %>% 
@@ -109,15 +117,17 @@ match_MAD_SP <-
 
 match_MAD <- 
   match_MAD_SP %>% 
-  dplyr::group_by(analytical, proximity, apportionment) %>% 
+  dplyr::group_by(ADF) %>% 
   dplyr::summarize(MAD_match = mean(MAD_SP),
                    MAD_match_norm = mean(MAD_SP_norm))
   
+match_MAD_diffs <- generate_label_df(TukeyHSD(aov(lm(MAD_SP_norm ~ ADF, data = match_MAD_SP))), "ADF")
+
 # calculate MAD, total capture
 capture_MAD_SP <-
   capture_all %>% 
   subset(SP >= first_SP) %>% 
-  dplyr::group_by(analytical, proximity, apportionment, SP) %>% 
+  dplyr::group_by(ADF, SP) %>% 
   dplyr::summarize(MAD_SP = hydroGOF::mae(capture_m3d_ADF, capture_m3d_modflow),
                    capture_min_modflow = min(capture_m3d_modflow),
                    capture_max_modflow = max(capture_m3d_modflow)) %>% 
@@ -125,31 +135,44 @@ capture_MAD_SP <-
 
 capture_MAD <- 
   capture_MAD_SP %>% 
-  dplyr::group_by(analytical, proximity, apportionment) %>% 
+  dplyr::group_by(ADF) %>% 
   dplyr::summarize(MAD_capture = mean(MAD_SP),
                    MAD_capture_norm = mean(MAD_SP_norm))
+
+capture_diffs <- generate_label_df(TukeyHSD(aov(lm(MAD_SP_norm ~ ADF, data = capture_MAD_SP))), "ADF")
 
 # calculate KGE, depletion
 depletion_KGE_SP <-
   depletion_all %>% 
   subset(SP >= first_SP) %>% 
-  dplyr::group_by(analytical, proximity, apportionment, SP) %>% 
+  dplyr::group_by(ADF, SP) %>% 
   dplyr::summarize(KGE_SP = hydroGOF::KGE(depletion_m3d_ADF, depletion_m3d_modflow, method = "2012"))
   
 depletion_KGE <-
   depletion_KGE_SP %>% 
-  dplyr::group_by(analytical, proximity, apportionment) %>% 
+  dplyr::group_by(ADF) %>% 
   dplyr::summarize(KGE_depletion = mean(KGE_SP))
+
+depletion_diffs <- generate_label_df(TukeyHSD(aov(lm(KGE_SP ~ ADF, data = depletion_KGE_SP))), "ADF")
 
 ## join all fit metrics together
 fit_all <- 
   match_prc %>% 
-  dplyr::left_join(match_MAD, by = c("analytical", "proximity", "apportionment")) %>% 
-  dplyr::left_join(capture_MAD, by = c("analytical", "proximity", "apportionment")) %>% 
-  dplyr::left_join(depletion_KGE, by = c("analytical", "proximity", "apportionment"))
+  dplyr::left_join(match_MAD, by = c("ADF")) %>% 
+  dplyr::left_join(capture_MAD, by = c("ADF")) %>% 
+  dplyr::left_join(depletion_KGE, by = c("ADF")) %>% 
+  dplyr::left_join(match_prc_diffs, by = c("ADF" = "treatment")) %>% 
+  dplyr::rename(prc_match_letters = Letters) %>% 
+  dplyr::left_join(match_MAD_diffs, by = c("ADF" = "treatment")) %>% 
+  dplyr::rename(MAD_match_norm_letters = Letters) %>% 
+  dplyr::left_join(capture_diffs, by = c("ADF" = "treatment")) %>% 
+  dplyr::rename(MAD_capture_norm_letters = Letters) %>% 
+  dplyr::left_join(depletion_diffs, by = c("ADF" = "treatment")) %>% 
+  dplyr::rename(KGE_depletion_letters = Letters)
 
 # save output
 fit_all %>% 
-  dplyr::select(proximity, apportionment, prc_match, MAD_match_norm, KGE_depletion, MAD_capture_norm) %>% 
+  dplyr::select(ADF, prc_match, MAD_match_norm, KGE_depletion, MAD_capture_norm, 
+                prc_match_letters, MAD_match_norm_letters, KGE_depletion_letters, MAD_capture_norm_letters) %>% 
   dfDigits(digits = 3) %>% 
   readr::write_csv(file.path("figures+tables", "Table_FitStatistics.csv"))
