@@ -132,13 +132,13 @@ set.seed(1)
 capture_melt <-
   capture_cast %>% 
   dplyr::sample_n(n_sample) %>% 
-  reshape2::melt(id = c("Adjacent_Web"), variable.name = "ADF", value.name = "capture_m3d")
+  reshape2::melt(id = c("Adjacent+Expanding_WebSq"), variable.name = "ADF", value.name = "capture_m3d")
   
 set.seed(1)
 depletion_melt <-
   depletion_cast %>% 
   dplyr::sample_n(n_sample) %>% 
-  reshape2::melt(id = c("Adjacent_Web"), variable.name = "ADF", value.name = "depletion_m3d")
+  reshape2::melt(id = c("Adjacent+Expanding_WebSq"), variable.name = "ADF", value.name = "depletion_m3d")
   
 ## facet plots
 ADF_labels <- c("Adjacent_InvDist" = "Adjacent\nInverse Dist.",
@@ -153,21 +153,21 @@ ADF_labels <- c("Adjacent_InvDist" = "Adjacent\nInverse Dist.",
                 "MODFLOW_MODFLOW" = "MODFLOW")
 
 p_pairs_capture <- 
-  ggplot(capture_melt, aes(x = capture_m3d, y = Adjacent_Web)) +
+  ggplot(capture_melt, aes(x = capture_m3d, y = `Adjacent+Expanding_WebSq`)) +
   geom_point(shape = 21) +
   geom_abline(intercept = 0, slope = 1, color = col.cat.red) +
   facet_wrap(~ADF, scales = "free", labeller = as_labeller(ADF_labels)) +
   scale_x_continuous(name = "Capture [m\u00b3/d] from other approach") +
-  scale_y_continuous(name = "Capture [m\u00b3/d] from Adjacent-Web analytical depletion function") +
+  scale_y_continuous(name = "Capture [m\u00b3/d] from best analytical depletion function") +
   ggsave(file.path("figures+tables", "Figure_CompareADFs-PairPlots_CapturePairs.png"),
          width = 190, height = 190, units = "mm")
 
 p_pairs_depletion <- 
-  ggplot(depletion_melt, aes(x = depletion_m3d, y = Adjacent_Web)) +
+  ggplot(depletion_melt, aes(x = depletion_m3d, y = `Adjacent+Expanding_WebSq`)) +
   geom_point(shape = 21) +
   geom_abline(intercept = 0, slope = 1, color = col.cat.red) +
   facet_wrap(~ADF, scales = "free", labeller = as_labeller(ADF_labels)) +
   scale_x_continuous(name = "Depletion [m\u00b3/d] from other approach") +
-  scale_y_continuous(name = "Depletion [m\u00b3/d] from Adjacent-Web analytical depletion function") +
+  scale_y_continuous(name = "Depletion [m\u00b3/d] from best analytical depletion function") +
   ggsave(file.path("figures+tables", "Figure_CompareADFs-PairPlots_DepletionPairs.png"),
          width = 190, height = 190, units = "mm")
