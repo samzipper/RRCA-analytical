@@ -141,6 +141,20 @@ capture_MAD <-
 
 capture_diffs <- generate_label_df(TukeyHSD(aov(lm(MAD_SP_norm ~ ADF, data = capture_MAD_SP))), "ADF")
 
+# calculate bias, total capture
+capture_bias_SP <-
+  capture_all %>% 
+  subset(SP >= first_SP) %>% 
+  dplyr::group_by(ADF, SP) %>% 
+  dplyr::summarize(bias_capture_SP = hydroGOF::pbias(capture_m3d_ADF, capture_m3d_modflow))
+
+capture_bias <- 
+  capture_bias_SP %>% 
+  dplyr::group_by(ADF) %>% 
+  dplyr::summarize(bias_capture = mean(bias_capture_SP))
+
+capture_bias_diffs <- generate_label_df(TukeyHSD(aov(lm(bias_capture_SP ~ ADF, data = capture_bias_SP))), "ADF")
+
 # calculate KGE, depletion
 depletion_KGE_SP <-
   depletion_all %>% 
@@ -160,19 +174,22 @@ fit_all <-
   match_prc %>% 
   dplyr::left_join(match_MAD, by = c("ADF")) %>% 
   dplyr::left_join(capture_MAD, by = c("ADF")) %>% 
+  dplyr::left_join(capture_bias, by = c("ADF")) %>% 
   dplyr::left_join(depletion_KGE, by = c("ADF")) %>% 
   dplyr::left_join(match_prc_diffs, by = c("ADF" = "treatment")) %>% 
   dplyr::rename(prc_match_letters = Letters) %>% 
   dplyr::left_join(match_MAD_diffs, by = c("ADF" = "treatment")) %>% 
   dplyr::rename(MAD_match_norm_letters = Letters) %>% 
   dplyr::left_join(capture_diffs, by = c("ADF" = "treatment")) %>% 
-  dplyr::rename(MAD_capture_norm_letters = Letters) %>% 
+  dplyr::rename(MAD_capture_norm_letters = Letters) %>%
+  dplyr::left_join(capture_bias_diffs, by = c("ADF" = "treatment")) %>% 
+  dplyr::rename(bias_capture_letters = Letters) %>% 
   dplyr::left_join(depletion_diffs, by = c("ADF" = "treatment")) %>% 
   dplyr::rename(KGE_depletion_letters = Letters)
 
 # save output
 fit_all %>% 
-  dplyr::select(ADF, prc_match, MAD_match_norm, KGE_depletion, MAD_capture_norm, 
-                prc_match_letters, MAD_match_norm_letters, KGE_depletion_letters, MAD_capture_norm_letters) %>% 
+  dplyr::select(ADF, prc_match, MAD_match_norm, KGE_depletion, bias_capture, 
+                prc_match_letters, MAD_match_norm_letters, KGE_depletion_letters, bias_capture_letters) %>% 
   dfDigits(digits = 3) %>% 
   readr::write_csv(file.path("figures+tables", "Table_FitStatistics.csv"))
