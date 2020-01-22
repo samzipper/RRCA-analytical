@@ -55,6 +55,17 @@ labs_wellProperties <- c("Qw_m3d_abs" = "Pumping Rate [m\u00b3/d]",
                          "distToClosestEVT_km" = "Distance to ET [km]",
                          "WTD_SS_m" = "Water Table Depth [m]")
 
+labs_ADF <- c("Adjacent_InvDist" = "Adjacent\nInverse Dist.",
+              "Adjacent_InvDistSq" = "Adjacent\nInverse Dist. Squared",
+              "Adjacent+Expanding_InvDist" = "Adjacent+Expanding\nInverse Dist.",
+              "Adjacent+Expanding_InvDistSq" = "Adjacent+Expanding\nInverse Dist. Squared",
+              "Adjacent_Web" = "Adjacent\nWeb",
+              "Adjacent_WebSq" = "Adjacent\nWeb Squared",
+              "Adjacent+Expanding_Web" = "Adjacent+Expanding\nWeb",
+              "Adjacent+Expanding_WebSq" = "Adjacent+Expanding\nWeb Squared",
+              "AnalyticalOnly_AnalyticalOnly" = "Analytical Only",
+              "MODFLOW_MODFLOW" = "MODFLOW")
+
 ## ggplot theme
 windowsFonts(Arial=windowsFont("TT Arial"))
 theme_scz <- function(...){

@@ -141,22 +141,11 @@ depletion_melt <-
   reshape2::melt(id = c("Adjacent+Expanding_WebSq"), variable.name = "ADF", value.name = "depletion_m3d")
   
 ## facet plots
-ADF_labels <- c("Adjacent_InvDist" = "Adjacent\nInverse Dist.",
-                "Adjacent_InvDistSq" = "Adjacent\nInverse Dist. Squared",
-                "Adjacent+Expanding_InvDist" = "Adjacent+Expanding\nInverse Dist.",
-                "Adjacent+Expanding_InvDistSq" = "Adjacent+Expanding\nInverse Dist. Squared",
-                "Adjacent_Web" = "Adjacent\nWeb",
-                "Adjacent_WebSq" = "Adjacent\nWeb Squared",
-                "Adjacent+Expanding_Web" = "Adjacent+Expanding\nWeb",
-                "Adjacent+Expanding_WebSq" = "Adjacent+Expanding\nWeb Squared",
-                "AnalyticalOnly_AnalyticalOnly" = "Analytical Only",
-                "MODFLOW_MODFLOW" = "MODFLOW")
-
 p_pairs_capture <- 
   ggplot(capture_melt, aes(x = capture_m3d, y = `Adjacent+Expanding_WebSq`)) +
   geom_point(shape = 21) +
   geom_abline(intercept = 0, slope = 1, color = col.cat.red) +
-  facet_wrap(~ADF, scales = "free", labeller = as_labeller(ADF_labels)) +
+  facet_wrap(~ADF, scales = "free", labeller = as_labeller(labs_ADF)) +
   scale_x_continuous(name = "Capture [m\u00b3/d] from other approach") +
   scale_y_continuous(name = "Capture [m\u00b3/d] from best analytical depletion function") +
   ggsave(file.path("figures+tables", "Figure_CompareADFs-PairPlots_CapturePairs.png"),
@@ -166,7 +155,7 @@ p_pairs_depletion <-
   ggplot(depletion_melt, aes(x = depletion_m3d, y = `Adjacent+Expanding_WebSq`)) +
   geom_point(shape = 21) +
   geom_abline(intercept = 0, slope = 1, color = col.cat.red) +
-  facet_wrap(~ADF, scales = "free", labeller = as_labeller(ADF_labels)) +
+  facet_wrap(~ADF, scales = "free", labeller = as_labeller(labs_ADF)) +
   scale_x_continuous(name = "Depletion [m\u00b3/d] from other approach") +
   scale_y_continuous(name = "Depletion [m\u00b3/d] from best analytical depletion function") +
   ggsave(file.path("figures+tables", "Figure_CompareADFs-PairPlots_DepletionPairs.png"),
