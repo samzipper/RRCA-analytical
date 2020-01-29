@@ -11,7 +11,7 @@ str_BCs <- c("STR", "DRN", "CHB")  # surface water BCs to consider: c("STR", "DR
 storage <- "sy_bulk"   # "ss_bulk_m", "ss_well_m", "sy_bulk", or "sy_well"
 
 proximity <- c("Adjacent", "Adjacent+Expanding")
-apportionment_eqs <- c("Web", "WebSq", "InvDist", "InvDistSq")  # depletion apportionment equation: "Web" or "WebSq" or "InvDistSq"
+apportionment_eqs <- c("Web", "WebSq", "InvDist", "InvDistSq")  # depletion apportionment equation: "Web" or "WebSq" or "InvDist" or "InvDistSq"
 
 ## load depletion estimates
 modflow_df <- 
@@ -24,7 +24,9 @@ modflow_budget_df <-
   readr::read_csv()
 
 ADF_all <- 
-  paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_Adjacent-Adjacent+Expanding_Web-WebSq-InvDist-InvDistSq_", paste(str_BCs, collapse = "-"), ".csv") %>% 
+  paste0("RRCA12p_07_ADF-CalculationDepletion_", analytical_model, "_", storage, "_", 
+         paste(proximity, collapse = "-"), "_", paste(apportionment_eqs, collapse = "-"), 
+         "_", paste(str_BCs, collapse = "-"), ".csv") %>% 
   file.path(onedrive_ws, "results", .) %>% 
   readr::read_csv()
 
