@@ -101,22 +101,32 @@ fit_ecdf <-
   reshape2::melt(id = c("WellNum", "prc_match", "MAD_match_norm", "KGE", "bias_capture"), value.name = "value", variable.name = "parameter") %>% 
   reshape2::melt(id = c("WellNum", "parameter", "value"), value.name = "fit", variable.name = "metric")
 
-# thresholds to categorize into "acceptable" and "unacceptable"
-prc_thres <- 0.5
-MAD_norm_thres <- 0.25
-KGE_thres <- -0.41
-bias_thres <- 50
+# put parameters and metrics in factor order for plots
+fit_ecdf$parameter <- factor(fit_ecdf$parameter, 
+                             levels = c("Qw_m3d_abs", "WTD_SS_m", 
+                                        "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                        "logTransmissivity_m2s", "ss_m"))
+fit_ecdf$metric <- factor(fit_ecdf$metric, 
+                          levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
 
-# make sure data are roughly evenly distributed about thresholds
+# define thresholds to categorize into "acceptable" and "unacceptable"
+quantile(fit_all$prc_match, 0.5)
+prc_thres <- 0.5
 sum(fit_all$prc_match > prc_thres)
 sum(fit_all$prc_match < prc_thres)
 
+quantile(fit_all$MAD_match_norm, 0.5)
+MAD_norm_thres <- 0.25
 sum(fit_all$MAD_match_norm > MAD_norm_thres)
 sum(fit_all$MAD_match_norm < MAD_norm_thres)
 
+quantile(fit_all$KGE, 0.5, na.rm = T)
+KGE_thres <- -0.41
 sum(fit_all$KGE > KGE_thres, na.rm = T)
 sum(fit_all$KGE < KGE_thres, na.rm = T)
 
+quantile(abs(fit_all$bias_capture), 0.5)
+bias_thres <- 75
 sum(abs(fit_all$bias_capture) < bias_thres, na.rm = T)
 sum(abs(fit_all$bias_capture) > bias_thres, na.rm = T)
 
@@ -127,20 +137,30 @@ fit_ecdf$fit_group[fit_ecdf$metric == "MAD_match_norm" & fit_ecdf$fit > MAD_norm
 fit_ecdf$fit_group[fit_ecdf$metric == "KGE" & fit_ecdf$fit < KGE_thres] <- "Poor"
 fit_ecdf$fit_group[fit_ecdf$metric == "bias_capture" & abs(fit_ecdf$fit) > bias_thres] <- "Poor"
 
+# plot
 ggplot(fit_ecdf, aes(x = value, color = fit_group)) +
   stat_ecdf() +
   facet_grid(metric~parameter, scales = "free", 
-             labeller = as_labeller(c(labs_wellProperties, 
-                                      "prc_match" = "Percent Match", 
-                                      "MAD_match_norm" = "Normalized MAD, Depletion",
-                                      "KGE" = "KGE",
-                                      "bias_capture" = "Bias, Capture Fraction"))) +
+             labeller = as_labeller(c("Qw_m3d_abs" = "Pumping Rate\n[m\u00b3/d]",
+                                      "logTransmissivity_m2s" = "log(Trans)\n[m\u00b2/s]",
+                                      "ss_m" = "Specific Storage\n[m\u207b\u00b9]",
+                                      "distToClosestSurfwat_km" = "Distance to\nWater [km]",
+                                      "distToClosestEVT_km" = "Distance to\nET [km]",
+                                      "WTD_SS_m" = "Water Table\nDepth [m]", 
+                                      "prc_match" = "% most-affected\ncorrect", 
+                                      "MAD_match_norm" = "MAD depletion,\nnormalized",
+                                      "KGE" = "KGE,\ndepletion",
+                                      "bias_capture" = "Bias,\ncapture fraction"))) +
   scale_x_continuous(name = "Value of Variable") +
-  scale_y_continuous(name = "ECDF", limits = c(0,1), expand = c(0,0)) +
-  scale_color_discrete(name = "Fit") +
-  theme(legend.position = "bottom")
+  scale_y_continuous(name = "Cumulative Proportion", limits = c(0,1), expand = c(0,0), 
+                     breaks = seq(0,1,0.2),
+                     labels = c("0.0", "", "0.4", "", "0.8", "")) +
+  scale_color_manual(name = "Fit", values = c("Good" = col.cat.blu, "Poor" = col.cat.red)) +
+  theme(legend.position = "bottom") +
+  ggsave(file.path("figures+tables", "Figure_FitByWell_ECDFs.png"),
+         width = 190, height = 190, units = "mm")
 
-
+# test significance
 
 
 
