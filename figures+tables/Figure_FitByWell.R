@@ -97,17 +97,12 @@ fit_all <-
 ## ecdf tests
 fit_ecdf <- 
   fit_all %>% 
-  dplyr::select(WellNum, prc_match, MAD_match_norm, KGE, bias_capture, Qw_m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_m) %>% 
+  # multiply ss by 100 so scales look better
+  dplyr::mutate(ss_100m = 100*ss_m,
+                Qw_1000m3d_abs = Qw_m3d_abs/1000) %>% 
+  dplyr::select(WellNum, prc_match, MAD_match_norm, KGE, bias_capture, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_100m) %>% 
   reshape2::melt(id = c("WellNum", "prc_match", "MAD_match_norm", "KGE", "bias_capture"), value.name = "value", variable.name = "parameter") %>% 
   reshape2::melt(id = c("WellNum", "parameter", "value"), value.name = "fit", variable.name = "metric")
-
-# put parameters and metrics in factor order for plots
-fit_ecdf$parameter <- factor(fit_ecdf$parameter, 
-                             levels = c("Qw_m3d_abs", "WTD_SS_m", 
-                                        "distToClosestSurfwat_km", "distToClosestEVT_km", 
-                                        "logTransmissivity_m2s", "ss_m"))
-fit_ecdf$metric <- factor(fit_ecdf$metric, 
-                          levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
 
 # define thresholds to categorize into "acceptable" and "unacceptable"
 quantile(fit_all$prc_match, 0.5)
@@ -137,13 +132,71 @@ fit_ecdf$fit_group[fit_ecdf$metric == "MAD_match_norm" & fit_ecdf$fit > MAD_norm
 fit_ecdf$fit_group[fit_ecdf$metric == "KGE" & fit_ecdf$fit < KGE_thres] <- "Poor"
 fit_ecdf$fit_group[fit_ecdf$metric == "bias_capture" & abs(fit_ecdf$fit) > bias_thres] <- "Poor"
 
+# test significance
+start_flag <- T
+for (par in unique(fit_ecdf$parameter)){
+  for (met in unique(fit_ecdf$metric)){
+    
+    # separate good and poor fits
+    vals_good <- subset(fit_ecdf, parameter == par & metric == met & fit_group == "Good")$value
+    vals_poor <- subset(fit_ecdf, parameter == par & metric == met & fit_group == "Poor")$value
+    
+    # ks test
+    fit_ks <- ks.test(vals_good, vals_poor)
+    
+    # grab p-value
+    p_ks <- fit_ks$p.value
+    
+    # make data frame
+    ks_p <- tibble::tibble(parameter = par,
+                           metric = met, 
+                           p = p_ks,
+                           sig = p_ks < 0.05)
+    
+    if (start_flag){
+      ks_results <- ks_p
+      start_flag <- F
+    } else {
+      ks_results <- dplyr::bind_rows(ks_results, ks_p)
+    }
+    
+  }
+}
+
+
+# put parameters and metrics in factor order for plots
+fit_ecdf$parameter <- factor(fit_ecdf$parameter, 
+                             levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
+                                        "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                        "logTransmissivity_m2s", "ss_100m"))
+fit_ecdf$metric <- factor(fit_ecdf$metric, 
+                          levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
+ks_results$parameter <- factor(ks_results$parameter, 
+                               levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
+                                          "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                          "logTransmissivity_m2s", "ss_100m"))
+ks_results$metric <- factor(ks_results$metric, 
+                            levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
+
+# select only parameters that have a significant difference
+#pars_sig <- 
+#  subset(ks_results, sig)$parameter %>% 
+#  unique()
+
 # plot
-ggplot(fit_ecdf, aes(x = value, color = fit_group)) +
-  stat_ecdf() +
+ggplot() +
+  #  stat_ecdf(data = subset(fit_ecdf, parameter %in% pars_sig), 
+  #            aes(x = value, color = fit_group)) +
+  #  geom_rect(data = subset(ks_results, parameter %in% pars_sig), 
+  #            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
+  stat_ecdf(data = fit_ecdf,
+            aes(x = value, color = fit_group)) +
+  geom_rect(data = ks_results,
+            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
   facet_grid(metric~parameter, scales = "free", 
-             labeller = as_labeller(c("Qw_m3d_abs" = "Pumping Rate\n[m\u00b3/d]",
+             labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
                                       "logTransmissivity_m2s" = "log(Trans)\n[m\u00b2/s]",
-                                      "ss_m" = "Specific Storage\n[m\u207b\u00b9]",
+                                      "ss_100m" = "Specific Storage\n[x0.01 m\u207b\u00b9]",
                                       "distToClosestSurfwat_km" = "Distance to\nWater [km]",
                                       "distToClosestEVT_km" = "Distance to\nET [km]",
                                       "WTD_SS_m" = "Water Table\nDepth [m]", 
@@ -156,11 +209,16 @@ ggplot(fit_ecdf, aes(x = value, color = fit_group)) +
                      breaks = seq(0,1,0.2),
                      labels = c("0.0", "", "0.4", "", "0.8", "")) +
   scale_color_manual(name = "Fit", values = c("Good" = col.cat.blu, "Poor" = col.cat.red)) +
+  scale_alpha_manual(name = "", values = c("FALSE" = 0.25, "TRUE" = 0),
+                     labels = c("FALSE" = "Difference Not Significant", "TRUE" = "")) +
   theme(legend.position = "bottom") +
+  guides(color = guide_legend(order = 1),
+         alpha = guide_legend(order = 2)) +
   ggsave(file.path("figures+tables", "Figure_FitByWell_ECDFs.png"),
-         width = 190, height = 190, units = "mm")
+         width = 190, height = 145, units = "mm")
 
-# test significance
+
+
 
 
 
