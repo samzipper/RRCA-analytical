@@ -214,8 +214,8 @@ ggplot() +
   theme(legend.position = "bottom") +
   guides(color = guide_legend(order = 1),
          alpha = guide_legend(order = 2)) +
-  ggsave(file.path("figures+tables", "Figure_FitByWell_ECDFs.png"),
-         width = 190, height = 145, units = "mm")
+  ggsave(file.path("figures+tables", "Figure_FitByWell_ECDFs_NoLabels.pdf"),
+         width = 190, height = 145, units = "mm", device = cairo_pdf)
 
 
 
