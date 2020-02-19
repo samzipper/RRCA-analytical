@@ -103,6 +103,7 @@ match_prc <-
   dplyr::group_by(ADF) %>% 
   dplyr::summarize(prc_match = 100*mean(prc_match_SP))
 
+anova(lm(prc_match_SP ~ ADF, data = match_prc_SP)) # test anova - need significant F for tukey to be valid
 match_prc_diffs <- generate_label_df(TukeyHSD(aov(lm(prc_match_SP ~ ADF, data = match_prc_SP))), "ADF")
 
 # calculate MAD, most affected segment 
@@ -121,6 +122,7 @@ match_MAD <-
   dplyr::summarize(MAD_match = mean(MAD_SP),
                    MAD_match_norm = mean(MAD_SP_norm))
   
+anova(lm(MAD_SP_norm ~ ADF, data = match_MAD_SP))
 match_MAD_diffs <- generate_label_df(TukeyHSD(aov(lm(MAD_SP_norm ~ ADF, data = match_MAD_SP))), "ADF")
 
 # calculate MAD, total capture
@@ -139,6 +141,7 @@ capture_MAD <-
   dplyr::summarize(MAD_capture = mean(MAD_SP),
                    MAD_capture_norm = mean(MAD_SP_norm))
 
+anova(lm(MAD_SP_norm ~ ADF, data = capture_MAD_SP))
 capture_diffs <- generate_label_df(TukeyHSD(aov(lm(MAD_SP_norm ~ ADF, data = capture_MAD_SP))), "ADF")
 
 # calculate bias, total capture
@@ -153,6 +156,7 @@ capture_bias <-
   dplyr::group_by(ADF) %>% 
   dplyr::summarize(bias_capture = mean(bias_capture_SP))
 
+anova(lm(bias_capture_SP ~ ADF, data = capture_bias_SP))
 capture_bias_diffs <- generate_label_df(TukeyHSD(aov(lm(bias_capture_SP ~ ADF, data = capture_bias_SP))), "ADF")
 
 # calculate KGE, depletion
@@ -167,6 +171,7 @@ depletion_KGE <-
   dplyr::group_by(ADF) %>% 
   dplyr::summarize(KGE_depletion = mean(KGE_SP))
 
+anova(lm(KGE_SP ~ ADF, data = depletion_KGE_SP))
 depletion_diffs <- generate_label_df(TukeyHSD(aov(lm(KGE_SP ~ ADF, data = depletion_KGE_SP))), "ADF")
 
 ## join all fit metrics together
