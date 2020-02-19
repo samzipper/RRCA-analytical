@@ -69,38 +69,155 @@ full_combo <-
   dplyr::left_join(RRCA12p_time, by = "SP")
 
 ## plot
+axis_min <- min(c(full_combo$flux_m3d_modflow, full_combo$flux_m3d_ADF))
+axis_max <- max(c(full_combo$flux_m3d_modflow, full_combo$flux_m3d_ADF))
 full_combo %>%
   subset(ADF == paste0(prox, "_", apportionment_eq)) %>%
   ggplot(aes(x = flux_m3d_modflow, y = flux_m3d_ADF, color = season)) +
   geom_point(alpha = 0.5) +
   geom_abline(intercept = 0, slope = 1, color = "black") +
-  facet_wrap(~flux, ncol = 1, scales = "free",
+  facet_wrap(~flux, ncol = 2, scales = "free",
              labeller = as_labeller(c("Depletion" = "(a) Depletion", "Capture" = "(b) Capture"))) +
   scale_x_continuous(name = "MODFLOW Estimate [m\u00b3/d]", 
-                     limits = c(min(full_combo$flux_m3d_modflow), max(full_combo$flux_m3d_modflow)), 
+                     limits = c(axis_min, axis_max), 
                      expand = c(0,0)) +
   scale_y_continuous(name = "Analytical Depletion Function Estimate [m\u00b3/d]", 
-                     limits = c(min(full_combo$flux_m3d_ADF), max(full_combo$flux_m3d_ADF)),
+                     limits = c(axis_min, axis_max), 
                      expand = c(0,0)) +
   scale_color_manual(name = "Season", values = pal.season) +
   theme(legend.position = "bottom") +
-  ggsave(file.path("figures+tables", "Figure_OverallPerformance.png"),
-         width = 95, height = 190, units = "mm")
+  ggsave(file.path("figures+tables", "Figure_OverallPerformance_NoLabels.png"),
+         width = 190, height = 105, units = "mm", dpi = 500)
 
-# # plot including analytical-only scatter
-# p_overall_scatter <- 
-#   full_combo %>% 
-#   subset(flux == "Depletion" | (flux == "Capture" & ADF == paste0(prox, "_", apportionment_eq))) %>% 
-#   ggplot(aes(x = flux_m3d_modflow, y = flux_m3d_ADF, color = season)) +
-#   geom_point(alpha = 0.5) +
-#   geom_abline(intercept = 0, slope = 1, color = "black") +
-#   facet_grid(ADF ~ flux,
-#              labeller = as_labeller(c(labs_ADF, 
-#                                       c("Capture" = "Capture", "Depletion" = "Depletion")))) +
-#   scale_x_continuous(name = "MODFLOW Estimate [m\u00b3/d]", expand = c(0,0)) +
-#   scale_y_continuous(name = "Analytical Estimate [m\u00b3/d]", expand = c(0,0)) +
-#   coord_equal() +
-#   scale_color_manual(name = "Season", values = pal.season) +
-#   ggsave(file.path("figures+tables", "Figure_OverallPerformance.png"),
-#          width = 190, height = 145, units = "mm")
+## explore weird points
+# overestimate cluster of points: 
+overestimates <- 
+  full_combo %>% 
+  subset(ADF == paste0(prox, "_", apportionment_eq)) %>%
+  subset(flux == "Depletion") %>% 
+  subset((flux_m3d_modflow < 1000) & 
+           (flux_m3d_modflow > 100) & 
+           (flux_m3d_ADF > 600) &
+           (flux_m3d_ADF > flux_m3d_modflow))
 
+# underestimated cluster of points
+underestimates <- 
+  full_combo %>% 
+  subset(ADF == paste0(prox, "_", apportionment_eq)) %>%
+  subset(flux == "Depletion") %>% 
+  subset((flux_m3d_modflow > 1500) &
+           (flux_m3d_ADF < flux_m3d_modflow))
+
+# plot
+full_combo %>%
+  subset(ADF == paste0(prox, "_", apportionment_eq)) %>%
+  subset(flux == "Depletion") %>% 
+  ggplot(aes(x = flux_m3d_modflow, y = flux_m3d_ADF)) +
+  geom_point(alpha = 0.5) +
+  geom_point(data = overestimates, color = "red") +
+  geom_point(data = underestimates, color = "blue") +
+  geom_abline(intercept = 0, slope = 1, color = "black") +
+  scale_x_continuous(name = "MODFLOW Estimate [m\u00b3/d]", 
+                     limits = c(axis_min, axis_max), 
+                     expand = c(0,0)) +
+  scale_y_continuous(name = "Analytical Depletion Function Estimate [m\u00b3/d]", 
+                     limits = c(axis_min, axis_max), 
+                     expand = c(0,0)) +
+  scale_color_manual(name = "Season", values = pal.season) +
+  theme(legend.position = "bottom")
+
+# load well data
+well_info <- 
+  file.path("results", "RRCA12p_03_WellSample.csv") %>% 
+  readr::read_csv() %>% 
+  subset(sample_lhs) %>% 
+  dplyr::mutate(
+    transmissivity_m2s = hk_ms*(top_m - botm_m),
+    logTransmissivity_m2s = log10(transmissivity_m2s),
+    Qw_m3d_abs = abs(Qw_m3d_mean),
+    WTD_SS_m = ground_m - head_SS_m,
+    distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
+    distToClosestEVT_km = distToClosestEVT_m/1000) 
+
+## dig into overestimates - virtually all overestimates are WellNum 11520 and 11521
+table(overestimates$WellNum)
+table(overestimates$SegNum)
+
+overestimates_wells <- 
+  well_info %>% 
+  subset(WellNum %in% c(11520, 11521))
+
+overestimates_wells$Qw_m3d_mean
+quantile(well_info$Qw_m3d_mean, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$Qw_m3d_mean < overestimates_wells$Qw_m3d_mean)/dim(well_info)[1]
+# about median pumping rate
+
+overestimates_wells$ss_m
+quantile(well_info$ss_m, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$ss_m < overestimates_wells$ss_m)/dim(well_info)[1]
+# 80th percentile ss
+
+overestimates_wells$distToClosestSurfwat_km
+quantile(well_info$distToClosestSurfwat_km, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$distToClosestSurfwat_km < overestimates_wells$distToClosestSurfwat_km)/dim(well_info)[1]
+# they are the two closest wells to streams
+
+overestimates_wells$distToClosestEVT_km
+quantile(well_info$distToClosestEVT_km, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$distToClosestEVT_km < overestimates_wells$distToClosestEVT_km)/dim(well_info)[1]
+# ...and relatively far from EVT (85th percentile)
+
+overestimates_wells$logTransmissivity_m2s
+quantile(well_info$logTransmissivity_m2s, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$logTransmissivity_m2s < overestimates_wells$logTransmissivity_m2s)/dim(well_info)[1]
+# ...and pretty low transmissivity (6th percentile)
+
+overestimates_wells$WTD_SS_m
+quantile(well_info$WTD_SS_m, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$WTD_SS_m < overestimates_wells$WTD_SS_m)/dim(well_info)[1]
+# ...and pretty shallow WTD (3rd percentile)
+
+## dig into underestimates - also primarily from two wells (118 and 121)
+table(underestimates$WellNum)
+table(underestimates$SegNum)
+
+underestimates_wells <- 
+  well_info %>% 
+  subset(WellNum %in% c(118, 121))
+
+underestimates_wells$Qw_m3d_mean
+quantile(well_info$Qw_m3d_mean, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$Qw_m3d_mean < underestimates_wells$Qw_m3d_mean)/dim(well_info)[1]
+# 68th percentile pumping rate
+
+underestimates_wells$ss_m
+quantile(well_info$ss_m, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$ss_m < underestimates_wells$ss_m)/dim(well_info)[1]
+# 20th percentile ss
+
+underestimates_wells$distToClosestSurfwat_km
+quantile(well_info$distToClosestSurfwat_km, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$distToClosestSurfwat_km < underestimates_wells$distToClosestSurfwat_km)/dim(well_info)[1]
+# 7th percentile distance to stream
+
+underestimates_wells$distToClosestEVT_km
+quantile(well_info$distToClosestEVT_km, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$distToClosestEVT_km < underestimates_wells$distToClosestEVT_km)/dim(well_info)[1]
+# 55th percentile distance to ET
+
+underestimates_wells$logTransmissivity_m2s
+quantile(well_info$logTransmissivity_m2s, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$logTransmissivity_m2s < underestimates_wells$logTransmissivity_m2s)/dim(well_info)[1]
+sum(well_info$logTransmissivity_m2s < underestimates_wells$logTransmissivity_m2s)/dim(well_info)[1]
+# high transmissivity (95th percentile)
+
+underestimates_wells$WTD_SS_m
+quantile(well_info$WTD_SS_m, c(0.0, 0.25, 0.5, 0.75, 1.0))
+sum(well_info$WTD_SS_m < underestimates_wells$WTD_SS_m)/dim(well_info)[1]
+# 30th percentile WTD
+
+ggplot(well_info, aes(x = col, y = row)) +
+  geom_point() +
+  geom_point(data = overestimates_wells, color = "red") +
+  geom_point(data = underestimates_wells, color = "blue") +
+  scale_y_reverse()
