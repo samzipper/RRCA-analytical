@@ -28,8 +28,9 @@ mf_melt <-
 ggplot(mf_melt) +
   geom_col(aes(x = SP, y = value*86400*0.3048*0.3048*0.3048, fill = variable)) +
   geom_hline(yintercept = 0, color = col.gray) +
-  geom_line(data = mf_baseline, aes(x = SP, y = BALANCE_NET*86400*0.3048*0.3048*0.3048), color = "black") +
-  scale_x_continuous(name = "MODFLOW Stress Period [last 5 years]", 
+  geom_line(data = mf_baseline, aes(x = SP, y = (BALANCE_NET*86400*0.3048*0.3048*0.3048)), 
+            color = "black") +
+  scale_x_continuous(name = "MODFLOW Stress Period [monthly, last 5 years]", 
                      limits = c(937, 996), expand = c(0,0)) +
   scale_y_continuous(name = "Net Flux [m\u00b3/d]") +
   scale_fill_discrete(name = "Store", 
