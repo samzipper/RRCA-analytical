@@ -203,7 +203,7 @@ ggplot() +
                                       "prc_match" = "% most-affected\ncorrect", 
                                       "MAD_match_norm" = "MAD depletion,\nnormalized",
                                       "KGE" = "KGE,\ndepletion",
-                                      "bias_capture" = "Bias,\ncapture fraction"))) +
+                                      "bias_capture" = "Bias, streamflow\ncapture fraction"))) +
   scale_x_continuous(name = "Value of Variable") +
   scale_y_continuous(name = "Cumulative Proportion", limits = c(0,1), expand = c(0,0), 
                      breaks = seq(0,1,0.2),

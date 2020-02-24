@@ -126,37 +126,44 @@ depletion_cast <-
   dplyr::select(-SP, -WellNum, -SegNum)
 
 # melt for facet plots
-n_sample <- 10000
+n_sample <- 50000
 
 set.seed(1)
 capture_melt <-
   capture_cast %>% 
-  dplyr::sample_n(n_sample) %>% 
+  #dplyr::sample_n(n_sample) %>% 
   reshape2::melt(id = c("Adjacent+Expanding_WebSq"), variable.name = "ADF", value.name = "capture_m3d")
   
 set.seed(1)
 depletion_melt <-
   depletion_cast %>% 
-  dplyr::sample_n(n_sample) %>% 
+  #dplyr::sample_n(n_sample) %>% 
   reshape2::melt(id = c("Adjacent+Expanding_WebSq"), variable.name = "ADF", value.name = "depletion_m3d")
   
 ## facet plots
+axes_max <- max(capture_melt$capture_m3d)
+axes_min <- min(capture_melt$capture_m3d)
+
 p_pairs_capture <- 
   ggplot(capture_melt, aes(x = capture_m3d, y = `Adjacent+Expanding_WebSq`)) +
-  geom_point(shape = 21) +
+  geom_point(shape = 21, alpha = 0.5) +
   geom_abline(intercept = 0, slope = 1, color = col.cat.red) +
   facet_wrap(~ADF, scales = "free", labeller = as_labeller(labs_ADF)) +
-  scale_x_continuous(name = "Capture [m\u00b3/d] from other approach") +
-  scale_y_continuous(name = "Capture [m\u00b3/d] from best analytical depletion function") +
+  scale_x_continuous(name = "Streamflow Capture [m\u00b3/d] from other approach", 
+                     limits = c(axes_min, axes_max), expand = c(0,0)) +
+  scale_y_continuous(name = "Streamflow Capture [m\u00b3/d] from best analytical depletion function", 
+                     limits = c(axes_min, axes_max), expand = c(0,0)) +
   ggsave(file.path("figures+tables", "Figure_CompareADFs-PairPlots_CapturePairs.png"),
          width = 190, height = 190, units = "mm")
 
 p_pairs_depletion <- 
   ggplot(depletion_melt, aes(x = depletion_m3d, y = `Adjacent+Expanding_WebSq`)) +
-  geom_point(shape = 21) +
+  geom_point(shape = 21, alpha = 0.5) +
   geom_abline(intercept = 0, slope = 1, color = col.cat.red) +
   facet_wrap(~ADF, scales = "free", labeller = as_labeller(labs_ADF)) +
-  scale_x_continuous(name = "Depletion [m\u00b3/d] from other approach") +
-  scale_y_continuous(name = "Depletion [m\u00b3/d] from best analytical depletion function") +
+  scale_x_continuous(name = "Streamflow Depletion [m\u00b3/d] from other approach", 
+                     limits = c(axes_min, axes_max), expand = c(0,0)) +
+  scale_y_continuous(name = "Streamflow Depletion [m\u00b3/d] from best analytical depletion function", 
+                     limits = c(axes_min, axes_max), expand = c(0,0)) +
   ggsave(file.path("figures+tables", "Figure_CompareADFs-PairPlots_DepletionPairs.png"),
          width = 190, height = 190, units = "mm")
