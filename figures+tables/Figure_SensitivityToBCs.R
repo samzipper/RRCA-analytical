@@ -29,13 +29,49 @@ mostAffected_noDRN <-
   readr::read_csv() %>% 
   dplyr::mutate(BCs = "No DRN")
 
+# surface water
+surfwat_df <- 
+  file.path("results", "RRCA12p_03_Surfwat.csv") %>% 
+  readr::read_csv() %>% 
+  dplyr::mutate(col_km = col*1.60934,
+                row_km = row*1.60934)
+surfwat_BCs <- 
+  surfwat_df %>% 
+  dplyr::select(SegNum, BC) %>% 
+  unique()
+
 ## join
 depletion_both <-
   dplyr::full_join(depletion_DRN, depletion_noDRN, by = c("SP", "WellNum", "SegNum", "depletion_m3d_modflow"), 
                    suffix = c("_DRN", "_noDRN")) %>% 
   dplyr::left_join(RRCA12p_time, by = "SP") %>% 
+  dplyr::left_join(surfwat_BCs, by = "SegNum") %>% 
   tidyr::replace_na(list("depletion_m3d_ADF_DRN" = 0, 
                          "depletion_m3d_ADF_noDRN" = 0))  # NA indicates depletion was not predicted at the SP and should therefore be 0
+
+## scatterplot for each BC
+
+axis_min <- min(c(depletion_both$depletion_m3d_modflow, depletion_both$depletion_m3d_ADF_DRN))
+axis_max <- max(c(depletion_both$depletion_m3d_modflow, depletion_both$depletion_m3d_ADF_DRN))
+
+depletion_both %>% 
+  #dplyr::sample_n(50000) %>% 
+  ggplot(aes(x = depletion_m3d_modflow, y = depletion_m3d_ADF_DRN, color = season)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, color = "black") +
+  scale_x_continuous(name = "MODFLOW Streamflow Depletion [m\u00b3/d]", 
+                     limits = c(axis_min, axis_max), 
+                     expand = c(0,0)) +
+  scale_y_continuous(name = "Analytical Depletion Function\nStreamflow Depletion [m\u00b3/d]", 
+                     limits = c(axis_min, axis_max), 
+                     expand = c(0,0)) +
+  scale_color_manual(name = "Season", values = pal.season) +
+  theme(legend.position = "bottom") +
+  facet_wrap(~factor(BC, levels = c("CHB", "STR", "DRN"),
+                     labels = c("(a) CHB", "(b) STR", "(c) DRN")),
+             scales = "free") +
+  ggsave(filename = file.path("figures+tables", "Figure_SensitivityToBCs-ScatterByBC.png"),
+         width = 190, height = 80, units = "mm")
 
 ## comparison with/without DRN
 p_ADFvADF <- 
@@ -52,7 +88,7 @@ p_ADFvADF <-
 
 ## save plot
 (p_ADFvADF + theme(legend.position = "bottom")) %>% 
-  ggsave(filename = file.path("figures+tables", "Figure_SensitivityToBCs.png"),
+  ggsave(filename = file.path("figures+tables", "Figure_SensitivityToBCs-DRNnoDRN.png"),
          plot = .,
          width = 95, height = 95, units = "mm")
 

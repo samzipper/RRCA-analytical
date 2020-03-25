@@ -163,7 +163,6 @@ for (par in unique(fit_ecdf$parameter)){
   }
 }
 
-
 # put parameters and metrics in factor order for plots
 fit_ecdf$parameter <- factor(fit_ecdf$parameter, 
                              levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
@@ -217,7 +216,86 @@ ggplot() +
   ggsave(file.path("figures+tables", "Figure_FitByWell_ECDFs_NoLabels.pdf"),
          width = 190, height = 145, units = "mm", device = cairo_pdf)
 
+## now: one set of plots for 
+fit_ecdf_allmetrics <- 
+  fit_ecdf %>% 
+  dplyr::group_by(WellNum, parameter, value) %>% 
+  dplyr::summarize(n_good = sum(fit_group == "Good"))
 
+length(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good)
+sum(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good == 4)
+sum(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good == 3)
+sum(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good == 2)
+sum(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good == 1)
+sum(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good == 0)
+
+fit_ecdf_allmetrics$fit_group <- "Poor"
+fit_ecdf_allmetrics$fit_group[fit_ecdf_allmetrics$n_good >= 2] <- "Good"
+
+start_flag <- T
+for (par in unique(fit_ecdf_allmetrics$parameter)){
+
+    # separate good and poor fits
+    vals_good <- subset(fit_ecdf_allmetrics, parameter == par & fit_group == "Good")$value
+    vals_poor <- subset(fit_ecdf_allmetrics, parameter == par & fit_group == "Poor")$value
+    
+    # ks test
+    fit_ks <- ks.test(vals_good, vals_poor)
+    
+    # grab p-value
+    p_ks <- fit_ks$p.value
+    
+    # make data frame
+    ks_p <- tibble::tibble(parameter = par,
+                           p = p_ks,
+                           sig = p_ks < 0.05)
+    
+    if (start_flag){
+      ks_results_allmetrics <- ks_p
+      start_flag <- F
+    } else {
+      ks_results_allmetrics <- dplyr::bind_rows(ks_results, ks_p)
+    }
+}
+
+fit_ecdf_allmetrics$parameter <- factor(fit_ecdf_allmetrics$parameter, 
+                                        levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
+                                                   "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                                   "logTransmissivity_m2s", "ss_100m"))
+ks_results_allmetrics$parameter <- factor(ks_results_allmetrics$parameter, 
+                                          levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
+                                                     "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                                     "logTransmissivity_m2s", "ss_100m"))
+
+ggplot() +
+  stat_ecdf(data = fit_ecdf_allmetrics,
+            aes(x = value, color = fit_group)) +
+  geom_rect(data = ks_results_allmetrics,
+            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
+  facet_wrap(~parameter, nrow = 1, scales = "free_x", 
+             labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
+                                      "logTransmissivity_m2s" = "log(Trans)\n[m\u00b2/s]",
+                                      "ss_100m" = "Specific Storage\n[x0.01 m\u207b\u00b9]",
+                                      "distToClosestSurfwat_km" = "Distance to\nWater [km]",
+                                      "distToClosestEVT_km" = "Distance to\nET [km]",
+                                      "WTD_SS_m" = "Water Table\nDepth [m]", 
+                                      "prc_match" = "% most-affected\ncorrect", 
+                                      "MAD_match_norm" = "MAD depletion,\nnormalized",
+                                      "KGE" = "KGE,\ndepletion",
+                                      "bias_capture" = "Bias, streamflow\ncapture fraction"))) +
+  scale_x_continuous(name = "Value of Variable") +
+  scale_y_continuous(name = "Cumulative Proportion", limits = c(0,1), expand = c(0,0), 
+                     breaks = seq(0,1,0.2)) +
+  scale_color_manual(name = "Wells with Good\nPerformance for", 
+                     values = c("Good" = col.cat.blu, "Poor" = col.cat.red),
+                     labels = c("Good" = ">= 2 metrics", "Poor" = "< 2 metrics")) +
+  scale_alpha_manual(name = "", values = c("FALSE" = 0.25, "TRUE" = 0),
+                     labels = c("FALSE" = "Difference Not Significant", "TRUE" = "")) +
+  guides(color = guide_legend(order = 1),
+         alpha = guide_legend(order = 2)) +
+  theme(legend.position = "bottom") +
+  ggsave(file.path("figures+tables", "Figure_FitByWell_ECDFs-AllMetrics_NoLabels.pdf"),
+         width = 190, height = 80, units = "mm", device = cairo_pdf)
 
 
 

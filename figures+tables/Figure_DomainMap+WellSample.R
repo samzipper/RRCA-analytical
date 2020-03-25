@@ -53,7 +53,7 @@ p.map <-
   #geom_point(data = wells_all, aes(x = col, y = row, color = sample_lhs), shape = 21, alpha = 0.5) +
   geom_point(data = subset(wells_all, sample_lhs), aes(x = col_km, y = row_km), color = col.cat.red, shape = 21) +
   geom_tile(data = subset(surfwat_df, BC == "CHB"), aes(x = col_km, y = row_km), fill = col.cat.org) +
-  geom_tile(data = subset(surfwat_df, BC == "DRN"), aes(x = col_km, y = row_km), fill = "cyan") +
+  geom_tile(data = subset(surfwat_df, BC == "DRN"), aes(x = col_km, y = row_km), fill = "deepskyblue") +
   geom_tile(data = subset(surfwat_df, BC == "STR"), aes(x = col_km, y = row_km), fill = "black") +
   # annotations
   annotate("text", 
@@ -63,7 +63,7 @@ p.map <-
            x = 440, y = 48, size=3, color = "black",
            label = "Streams") +
   annotate("text", 
-           x = 390, y = 200, size=3, color = "cyan",
+           x = 390, y = 200, size=3, color = "deepskyblue",
            label = "Drains") +
   annotate("text", 
            x = 65, y = 25, size=3, color = col.cat.red,

@@ -77,7 +77,7 @@ full_combo %>%
   geom_point(alpha = 0.5) +
   geom_abline(intercept = 0, slope = 1, color = "black") +
   facet_wrap(~flux, ncol = 2, scales = "free",
-             labeller = as_labeller(c("Depletion" = "(a) Streamflow Depletion (by segment)", "Capture" = "(b) Streamflow Capture (all segments)"))) +
+             labeller = as_labeller(c("Depletion" = "(a) Segment Streamflow Depletion", "Capture" = "(b) Total Streamflow Depletion (all segments)"))) +
   scale_x_continuous(name = "MODFLOW Estimate [m\u00b3/d]", 
                      limits = c(axis_min, axis_max), 
                      expand = c(0,0)) +
