@@ -1480,7 +1480,7 @@
      inkscape:pageopacity="1"
      inkscape:pageshadow="2"
      inkscape:zoom="1.3222897"
-     inkscape:cx="222.32151"
+     inkscape:cx="371.68364"
      inkscape:cy="223.60562"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -2505,19 +2505,19 @@
          id="tspan2358">evenly spaced points, then </tspan><tspan
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.5px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:1.25000012;stroke-miterlimit:4;stroke-dasharray:none"
          y="175.72261"
-         x="301.05481"
+         x="302.78821"
          sodipodi:role="line"
-         id="tspan3886">apportions based on square</tspan><tspan
+         id="tspan3886">apportions depletion based on </tspan><tspan
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.5px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:1.25000012;stroke-miterlimit:4;stroke-dasharray:none"
          y="191.34761"
          x="301.05481"
          sodipodi:role="line"
-         id="tspan3890">of inverse distance from each</tspan><tspan
+         id="tspan3890">square of inverse distance from</tspan><tspan
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.5px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:1.25000012;stroke-miterlimit:4;stroke-dasharray:none"
          y="206.97261"
          x="301.05481"
          sodipodi:role="line"
-         id="tspan2362"> point to well.</tspan></text>
+         id="tspan2362"> each point to well.</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:15.70539474px;line-height:0%;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1.63597882;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -2549,12 +2549,12 @@
          y="160.2502"
          x="546.77057"
          sodipodi:role="line"
-         id="tspan3100">stream, not accounting for streambed</tspan><tspan
+         id="tspan3100">well and stream, not accounting for</tspan><tspan
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.5px;line-height:1.25;font-family:Arial;-inkscape-font-specification:Arial;text-align:center;text-anchor:middle;fill:#000000;fill-opacity:1;stroke-width:1.25000012;stroke-miterlimit:4;stroke-dasharray:none"
          y="175.8752"
          x="546.77057"
          sodipodi:role="line"
-         id="tspan3106">resistance to flow.</tspan></text>
+         id="tspan3106">streambed resistance to flow.</tspan></text>
     <text
        id="text4626-6-3-8-8"
        y="3.4672401"

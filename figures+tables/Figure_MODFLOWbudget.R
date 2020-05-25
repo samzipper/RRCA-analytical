@@ -33,14 +33,21 @@ ggplot(mf_melt) +
   scale_x_continuous(name = "MODFLOW Stress Period [monthly, last 5 years]", 
                      limits = c(937, 996), expand = c(0,0)) +
   scale_y_continuous(name = "Net Flux [m\u00b3/d]") +
-  scale_fill_discrete(name = "Store", 
-                      labels = c("STORAGE_NET" = "Storage",
-                                 "CHB_NET" = "CHB",
-                                 "WEL_NET" = "WEL",
-                                 "DRN_NET" = "DRN",
-                                 "EVT_NET" = "EVT",
-                                 "RCH_NET" = "RCH",
-                                 "STR_NET" = "STR")) +
+  scale_fill_manual(name = "Store", 
+                    labels = c("STORAGE_NET" = "Storage",
+                               "CHB_NET" = "CHB",
+                               "WEL_NET" = "WEL",
+                               "DRN_NET" = "DRN",
+                               "EVT_NET" = "EVT",
+                               "RCH_NET" = "RCH",
+                               "STR_NET" = "STR"),
+                    values = c("STORAGE_NET" = "#1b9e77",
+                               "CHB_NET" = "#d95f02",
+                               "WEL_NET" = "#7570b3",
+                               "DRN_NET" = "#e7298a",
+                               "EVT_NET" = "#66a61e",
+                               "RCH_NET" = "#e6ab02",
+                               "STR_NET" = "#a6761d")) +
   theme(legend.position = "bottom") +
   ggsave(file.path("figures+tables", "Figure_MODFLOWbudget.png"),
          width = 190, height = 120, units = "mm")
