@@ -21,7 +21,8 @@ well_info <-
     Qw_m3d_abs = abs(Qw_m3d_mean),
     WTD_SS_m = ground_m - head_SS_m,
     distToClosestSurfwat_km = distToClosestSurfwat_m/1000,
-    distToClosestEVT_km = distToClosestEVT_m/1000) 
+    distToClosestEVT_km = distToClosestEVT_m/1000,
+    distToClosestNoFlow_km = distToClosestNoFlow_m/1000) 
 
 ## Load results from ADF
 capture_ADF <-
@@ -100,7 +101,7 @@ fit_ecdf <-
   # multiply ss by 100 so scales look better
   dplyr::mutate(ss_100m = 100*ss_m,
                 Qw_1000m3d_abs = Qw_m3d_abs/1000) %>% 
-  dplyr::select(WellNum, prc_match, MAD_match_norm, KGE, bias_capture, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_100m) %>% 
+  dplyr::select(WellNum, prc_match, MAD_match_norm, KGE, bias_capture, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, distToClosestNoFlow_km, WTD_SS_m, ss_100m) %>% 
   reshape2::melt(id = c("WellNum", "prc_match", "MAD_match_norm", "KGE", "bias_capture"), value.name = "value", variable.name = "parameter") %>% 
   reshape2::melt(id = c("WellNum", "parameter", "value"), value.name = "fit", variable.name = "metric")
 
@@ -167,12 +168,14 @@ for (par in unique(fit_ecdf$parameter)){
 fit_ecdf$parameter <- factor(fit_ecdf$parameter, 
                              levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                         "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                        "distToClosestNoFlow_km",
                                         "logTransmissivity_m2s", "ss_100m"))
 fit_ecdf$metric <- factor(fit_ecdf$metric, 
                           levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
 ks_results$parameter <- factor(ks_results$parameter, 
                                levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                           "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                          "distToClosestNoFlow_km",
                                           "logTransmissivity_m2s", "ss_100m"))
 ks_results$metric <- factor(ks_results$metric, 
                             levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
@@ -188,9 +191,9 @@ ggplot() +
   #            aes(x = value, color = fit_group)) +
   #  geom_rect(data = subset(ks_results, parameter %in% pars_sig), 
   #            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
-  stat_ecdf(data = fit_ecdf,
+  stat_ecdf(data = subset(fit_ecdf, parameter != "distToClosestNoFlow_km"),
             aes(x = value, color = fit_group)) +
-  geom_rect(data = ks_results,
+  geom_rect(data = subset(ks_results, parameter != "distToClosestNoFlow_km"),
             aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
   facet_grid(metric~parameter, scales = "free", 
              labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
@@ -261,17 +264,17 @@ for (par in unique(fit_ecdf_allmetrics$parameter)){
 fit_ecdf_allmetrics$parameter <- factor(fit_ecdf_allmetrics$parameter, 
                                         levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                                    "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                                   "distToClosestNoFlow_km",
                                                    "logTransmissivity_m2s", "ss_100m"))
 ks_results_allmetrics$parameter <- factor(ks_results_allmetrics$parameter, 
                                           levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                                      "distToClosestSurfwat_km", "distToClosestEVT_km", 
+                                                     "distToClosestNoFlow_km",
                                                      "logTransmissivity_m2s", "ss_100m"))
 
 ggplot() +
-  stat_ecdf(data = fit_ecdf_allmetrics,
+  stat_ecdf(data = subset(fit_ecdf_allmetrics, parameter != "distToClosestNoFlow_km"),
             aes(x = value, color = fit_group)) +
-  geom_rect(data = ks_results_allmetrics,
-            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
   facet_wrap(~parameter, nrow = 1, scales = "free_x", 
              labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
                                       "logTransmissivity_m2s" = "log(Trans)\n[m\u00b2/s]",
@@ -298,6 +301,36 @@ ggplot() +
          width = 190, height = 80, units = "mm", device = cairo_pdf)
 
 
+## plots for distance to closest no-flow boundary
+# individual metrics
+ggplot() +
+  stat_ecdf(data = subset(fit_ecdf, parameter == "distToClosestNoFlow_km"),
+            aes(x = value, color = fit_group)) +
+  geom_rect(data = subset(ks_results, parameter == "distToClosestNoFlow_km"),
+            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
+  facet_grid(metric~parameter, scales = "free", 
+             labeller = as_labeller(c("distToClosestNoFlow_km" = "Effects of proximity to model boundary",
+                                      "prc_match" = "% most-affected\ncorrect", 
+                                      "MAD_match_norm" = "MAD depletion,\nnormalized",
+                                      "KGE" = "KGE,\ndepletion",
+                                      "bias_capture" = "Bias, streamflow\ncapture fraction"))) +
+  scale_x_continuous(name = "Distance to Closest No-Flow Boundary [km]") +
+  scale_y_continuous(name = "Cumulative Proportion", limits = c(0,1), expand = c(0,0), 
+                     breaks = seq(0,1,0.2),
+                     labels = c("0.0", "", "0.4", "", "0.8", "")) +
+  scale_color_manual(name = "Fit", values = c("Good" = col.cat.blu, "Poor" = col.cat.red)) +
+  scale_alpha_manual(name = "", values = c("FALSE" = 0.25, "TRUE" = 0),
+                     labels = c("FALSE" = "Difference\nNot Significant", "TRUE" = "")) +
+  guides(color = guide_legend(order = 1),
+         alpha = guide_legend(order = 2)) +
+  theme(legend.position = "bottom") +
+  ggsave(file.path("figures+tables", "Figure_FitByWell_DistToNoFlow.png"),
+         width = 95, height = 180, units = "mm")
+
+
+fit_closeToEdge <-
+  fit_all %>% 
+  subset(distToClosestNoFlow_km < 20 & distToClosestSurfwat_km > 20)
 
 
 ## scatterplots

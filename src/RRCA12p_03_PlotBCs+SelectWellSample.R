@@ -21,13 +21,53 @@ budget_spd <-
   file.path(model_ws_simple, "RRCA12p_BudgetFlux.csv") %>% 
   readr::read_csv()
 
-## extract constant head boundaries from ibound
+## extract constant head and no-flow boundaries from ibound
 ibound_df <-  
   file.path(model_ws_simple, "RRCA12p_BAS6-ibound.txt") %>% 
   scan %>% 
   tibble::tibble(row = rep(seq(1, RRCA12p_nrow), each = RRCA12p_ncol),
                  col = rep(seq(1, RRCA12p_ncol), time = RRCA12p_nrow),
                  ibound = .)
+
+## figure out no-flow cells along edge
+noflow_df <-
+  file.path(model_ws_simple, "RRCA12p_BAS6-ibound.txt") %>% 
+  scan %>% 
+  matrix(nrow = RRCA12p_nrow, ncol = RRCA12p_ncol, byrow = T)
+noflow_df[noflow_df != 0] <- 1
+
+# identify edge by counting number of neighboring cells = 1 (active)
+noflow_nbr <- simecol::neighbors(noflow_df, state = 1, 
+                                 wdist = matrix(data = rep(1, 9), nrow = 3, ncol = 3))
+
+# edge will have noflow_df = 0 and noflow_nbr > 0
+noflow_edge <- as.numeric(noflow_df == 0 & noflow_nbr > 0)
+
+noflow_edge_df <-
+  noflow_edge %>% 
+  tibble::tibble(row = rep(seq(1, RRCA12p_nrow), time = RRCA12p_ncol),
+                 col = rep(seq(1, RRCA12p_ncol), each = RRCA12p_nrow),
+                 edge = as.vector(noflow_edge))
+
+# get no-flow
+noflow_df <-
+  noflow_edge_df %>% 
+  subset(edge == 1) %>% 
+  dplyr::select(-edge) %>% 
+  transform(lay = 1,
+            ReachNum = 0,
+            flow = 0,
+            stage = 0,
+            cond = 0,
+            sbot = 0,
+            stop = 0,
+            width = 0,
+            slope = 0,
+            rough = 0,
+            cond_total = 0,
+            leakage = 0,
+            cond_proportion = 0,
+            BC = "NoFlow")
 
 # split CHB into segments
 # script needs to be run in this specific order - CHB after STR, followed by this code block
@@ -266,7 +306,7 @@ well_evt_df <-
   # get distance to closest stream
   dplyr::group_by(WellNum) %>% 
   dplyr::summarize(distToClosestEVT_cells = min(distToEVT_cells)) %>% 
-  # add SegNum and other information about closest stream
+  # add SegNum and other information about closest ET
   dplyr::left_join(tibble::tibble(
     WellNum = rep(wells_sf$WellNum, times = dim(well_evt_dist)[2]),
     distToEVT_cells = as.numeric(well_evt_dist), 
@@ -275,6 +315,22 @@ well_evt_df <-
   # some well-stream pairs have same distance; choose whichever has greater ET (more ET = negative flux)
   group_by(WellNum) %>% 
   filter(ET_mean == max(ET_mean))
+
+## calculate distance to closest no-flow boundary
+noflow_sf <- 
+  noflow_df %>% 
+  sf::st_as_sf(., coords=c("col", "row"), crs="+init=epsg:26714")
+
+well_noflow_dist <- 
+  sf::st_distance(x=wells_sf, y=noflow_sf)
+well_noflow_df <- 
+  tibble::tibble(
+    WellNum = rep(wells_sf$WellNum, times = dim(well_noflow_dist)[2]),
+    distToNoFlow_cells = as.numeric(well_noflow_dist)
+  ) %>% 
+  # get distance to closest stream
+  dplyr::group_by(WellNum) %>% 
+  dplyr::summarize(distToClosestNoFlow_cells = min(distToNoFlow_cells))
 
 ## load some model characteristics
 vars_load <- c("LPF-hk", "LPF-ss", "DIS-top", "DIS-botm", "BAS6-strt", "BAS6-ibound", "RCH-rech")
@@ -301,7 +357,7 @@ ground <-
   scan(skip=1)
 model_df$ground <- ground
 
-# load specific yield - not clear if this is actually used in model?
+# load specific yield - this is not used in model, but is the basis for specific storage
 sy <- 
   file.path(onedrive_ws, "static", "12.sy") %>% 
   scan()
@@ -329,6 +385,7 @@ wells_all <-
   wells %>% 
   dplyr::left_join(well_surfwat_df, by = "WellNum") %>% 
   dplyr::left_join(well_evt_df, by = "WellNum") %>% 
+  dplyr::left_join(well_noflow_df, by = "WellNum") %>% 
   dplyr::left_join(model_df, by = c("row", "col")) %>% 
   transform(logTransmissivity_ft2s = log10(transmissivity_ft2s),
             logHk = log10(hk)) %>% 
@@ -448,6 +505,7 @@ wells_all %>%
             ss_m = ss*3.28084, # from [1/ft] to [1/m] --> [1/ft][3.28084 ft/1 m] = [1/m]
             distToClosestSurfwat_m = distToClosestSurfwat_cells*5280*0.3048,
             distToClosestEVT_m = distToClosestEVT_cells*5280*0.3048,
+            distToClosestNoFlow_m = distToClosestNoFlow_cells*5280*0.3048,
             top_m = top*0.3048,
             botm_m = botm*0.3048,
             strt_m = strt*0.3048,
@@ -458,7 +516,7 @@ wells_all %>%
             Qw_m3d_mean = abs(Qw_acreFeetDay_mean)*1233.48,
             Qw_m3d_max = abs(Qw_acreFeetDay_max)*1233.48) %>% 
   dplyr::select(WellNum, row, col, yr_pump_start, yr_pump_end, Qw_m3d_mean, Qw_m3d_max, hk_ms,
-                ss_m, sy, distToClosestSurfwat_m, distToClosestEVT_m, ground_m, top_m, botm_m, strt_m, rech_ms,
+                ss_m, sy, distToClosestSurfwat_m, distToClosestEVT_m, distToClosestNoFlow_m, ground_m, top_m, botm_m, strt_m, rech_ms,
                 head_SS_m, head_end_m, sample_lhs) %>% 
   readr::write_csv(file.path("results", "RRCA12p_03_WellSample.csv"))
 
