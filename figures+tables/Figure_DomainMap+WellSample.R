@@ -148,3 +148,27 @@ ggplot(wells_props_all) +
   ggsave(file.path("figures+tables", "Figure_DomainMap+WellSample_Hist-WellSample+AllWells.png"),
          width = 190, height = 95, units = "mm") +
   NULL
+
+## calculate distance between all wells
+# convert to sf
+wells_sf <- 
+  wells_all %>% 
+  subset(sample_lhs) %>% 
+  sf::st_as_sf(., coords=c("col", "row"), crs="+init=epsg:26714")
+
+# get distance from each well to each other well
+well_well_dist <-
+  sf::st_distance(x=wells_sf, y=wells_sf)
+units(well_well_dist) <- NULL
+
+# each well will be 0 cells from itself; set these to NA
+well_well_dist[well_well_dist == 0] <- NA
+
+# get min distance for each row
+well_closest_dist_cells <-
+  apply(well_well_dist, 1, min, na.rm = T)
+
+well_closest_dist_km <-
+  well_closest_dist_cells*5280*0.3048/1000
+
+qplot(well_closest_dist_cells, binwidth = 1)
