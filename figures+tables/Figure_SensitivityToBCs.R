@@ -71,7 +71,9 @@ depletion_both %>%
                      labels = c("(a) CHB", "(b) STR", "(c) DRN")),
              scales = "free") +
   ggsave(filename = file.path("figures+tables", "Figure_SensitivityToBCs-ScatterByBC.png"),
-         width = 190, height = 80, units = "mm")
+         width = 190, height = 80, units = "mm") +
+  ggsave(filename = file.path("figures+tables", "Figure4.pdf"),
+         width = 190, height = 80, units = "mm", device = cairo_pdf)
 
 ## comparison with/without DRN
 p_ADFvADF <- 

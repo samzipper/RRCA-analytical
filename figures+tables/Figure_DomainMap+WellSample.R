@@ -116,6 +116,16 @@ cowplot::plot_grid(p.map, p.wells,
                      plot = .,
                      base_width = 190/25.4, base_height = 95/25.4)
 
+
+cowplot::plot_grid(p.map, p.wells, 
+                   axis = "tb",
+                   ncol = 2,
+                   rel_widths = c(1, 1.1)) %>% 
+  cowplot::save_plot(file.path("figures+tables", "Figure_DomainMap+WellSample.pdf"),
+                     plot = .,
+                     device = cairo_pdf,
+                     base_width = 190/25.4, base_height = 95/25.4)
+
 ## facet plot of well characteristics - sampled wells and all wells (for SI)
 wells_props_all <- 
   wells_all %>% 

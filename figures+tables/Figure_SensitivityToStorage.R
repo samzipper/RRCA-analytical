@@ -84,6 +84,13 @@ p_ADFvADF <-
          plot = .,
          width = 95, height = 95, units = "mm")
 
+
+# just one plot
+(p_ADFvMODFLOW + theme(legend.position = "bottom")) %>% 
+  ggsave(filename = file.path("figures+tables", "Figure5.tiff"),
+         plot = .,
+         width = 95, height = 95, units = "mm", dpi = 300)
+
 ## calculate fit statistics - same as those in table 1
 # number of years (from end of simulation) to include in table
 n_yrs <- 20
