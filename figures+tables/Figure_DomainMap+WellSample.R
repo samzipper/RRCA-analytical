@@ -83,13 +83,14 @@ p.map <-
 wells_props <- 
   wells_all %>% 
   subset(sample_lhs) %>% 
-  dplyr::select(WellNum, sample_lhs, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_100m) %>% 
+  dplyr::mutate(storage_m = sy*sat_thickness_m) %>% 
+  dplyr::select(WellNum, sample_lhs, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, storage_m) %>% 
   reshape2::melt(id = c("WellNum", "sample_lhs"))
 
 wells_props$variable <- factor(wells_props$variable, 
                                levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                           "distToClosestSurfwat_km", "distToClosestEVT_km", 
-                                          "logTransmissivity_m2s", "ss_100m"))
+                                          "logTransmissivity_m2s", "storage_m"))
 
 p.wells <- 
   ggplot(wells_props) +
@@ -97,7 +98,7 @@ p.wells <-
   facet_wrap( ~ variable, scales = "free", ncol = 2,
               labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping [x1000 m\u00b3/d]",
                                        "logTransmissivity_m2s" = "log(Trans) [m\u00b2/s]",
-                                       "ss_100m" = "Sp. Storage [x0.01 m\u207b\u00b9]",
+                                       "storage_m" = "Storage [m]",
                                        "distToClosestSurfwat_km" = "Distance to Water [km]",
                                        "distToClosestEVT_km" = "Distance to ET [km]",
                                        "WTD_SS_m" = "Water Table Depth [m]"))) +
@@ -129,14 +130,15 @@ cowplot::plot_grid(p.map, p.wells,
 ## facet plot of well characteristics - sampled wells and all wells (for SI)
 wells_props_all <- 
   wells_all %>% 
-  dplyr::select(WellNum, sample_lhs, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, ss_100m) %>% 
+  dplyr::mutate(storage_m = sy*sat_thickness_m) %>% 
+  dplyr::select(WellNum, sample_lhs, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, WTD_SS_m, storage_m) %>% 
   reshape2::melt(id = c("WellNum", "sample_lhs")) %>%
   transform(sample_factor = factor(sample_lhs, levels = c("TRUE", "FALSE")))
 
 wells_props_all$variable <- factor(wells_props_all$variable, 
                                    levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                               "distToClosestSurfwat_km", "distToClosestEVT_km", 
-                                              "logTransmissivity_m2s", "ss_100m"))
+                                              "logTransmissivity_m2s", "storage_m"))
 
 
 ggplot(wells_props_all) +
@@ -144,7 +146,7 @@ ggplot(wells_props_all) +
   facet_grid(sample_factor ~ variable, scales = "free",
              labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
                                       "logTransmissivity_m2s" = "log(Trans) [m\u00b2/s]",
-                                      "ss_100m" = "Sp. Storage\n[x0.01 m\u207b\u00b9]",
+                                      "storage_m" = "Storage [m]",
                                       "distToClosestSurfwat_km" = "Distance to\nWater [km]",
                                       "distToClosestEVT_km" = "Distance to\nET [km]",
                                       "WTD_SS_m" = "Water Table\nDepth [m]",
