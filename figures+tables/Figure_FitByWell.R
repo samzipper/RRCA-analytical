@@ -16,6 +16,8 @@ well_info <-
   readr::read_csv() %>% 
   subset(sample_lhs) %>% 
   dplyr::mutate(
+    sat_thickness_m = top_m - botm_m,
+    storage_m = sat_thickness_m*sy,
     transmissivity_m2s = hk_ms*(top_m - botm_m),
     logTransmissivity_m2s = log10(transmissivity_m2s),
     Qw_m3d_abs = abs(Qw_m3d_mean),
@@ -101,7 +103,7 @@ fit_ecdf <-
   # multiply ss by 100 so scales look better
   dplyr::mutate(ss_100m = 100*ss_m,
                 Qw_1000m3d_abs = Qw_m3d_abs/1000) %>% 
-  dplyr::select(WellNum, prc_match, MAD_match_norm, KGE, bias_capture, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, distToClosestNoFlow_km, WTD_SS_m, ss_100m) %>% 
+  dplyr::select(WellNum, prc_match, MAD_match_norm, KGE, bias_capture, Qw_1000m3d_abs, logTransmissivity_m2s, distToClosestSurfwat_km, distToClosestEVT_km, distToClosestNoFlow_km, WTD_SS_m, storage_m) %>% 
   reshape2::melt(id = c("WellNum", "prc_match", "MAD_match_norm", "KGE", "bias_capture"), value.name = "value", variable.name = "parameter") %>% 
   reshape2::melt(id = c("WellNum", "parameter", "value"), value.name = "fit", variable.name = "metric")
 
@@ -169,14 +171,14 @@ fit_ecdf$parameter <- factor(fit_ecdf$parameter,
                              levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                         "distToClosestSurfwat_km", "distToClosestEVT_km", 
                                         "distToClosestNoFlow_km",
-                                        "logTransmissivity_m2s", "ss_100m"))
+                                        "logTransmissivity_m2s", "storage_m"))
 fit_ecdf$metric <- factor(fit_ecdf$metric, 
                           levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
 ks_results$parameter <- factor(ks_results$parameter, 
                                levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                           "distToClosestSurfwat_km", "distToClosestEVT_km", 
                                           "distToClosestNoFlow_km",
-                                          "logTransmissivity_m2s", "ss_100m"))
+                                          "logTransmissivity_m2s", "storage_m"))
 ks_results$metric <- factor(ks_results$metric, 
                             levels = c("prc_match", "MAD_match_norm", "KGE", "bias_capture"))
 
@@ -198,7 +200,7 @@ ggplot() +
   facet_grid(metric~parameter, scales = "free", 
              labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
                                       "logTransmissivity_m2s" = "log(Trans)\n[m\u00b2/s]",
-                                      "ss_100m" = "Specific Storage\n[x0.01 m\u207b\u00b9]",
+                                      "storage_m" = "Storage [m]",
                                       "distToClosestSurfwat_km" = "Distance to\nWater [km]",
                                       "distToClosestEVT_km" = "Distance to\nET [km]",
                                       "WTD_SS_m" = "Water Table\nDepth [m]", 
@@ -235,7 +237,7 @@ sum(subset(fit_ecdf_allmetrics, parameter == "Qw_1000m3d_abs")$n_good == 0)
 fit_ecdf_allmetrics$fit_group <- "Poor"
 fit_ecdf_allmetrics$fit_group[fit_ecdf_allmetrics$n_good >= 2] <- "Good"
 
-start_flag <- T
+start_flag_all <- T
 for (par in unique(fit_ecdf_allmetrics$parameter)){
 
     # separate good and poor fits
@@ -253,11 +255,11 @@ for (par in unique(fit_ecdf_allmetrics$parameter)){
                            p = p_ks,
                            sig = p_ks < 0.05)
     
-    if (start_flag){
+    if (start_flag_all){
       ks_results_allmetrics <- ks_p
-      start_flag <- F
+      start_flag_all <- F
     } else {
-      ks_results_allmetrics <- dplyr::bind_rows(ks_results, ks_p)
+      ks_results_allmetrics <- dplyr::bind_rows(ks_results_allmetrics, ks_p)
     }
 }
 
@@ -265,20 +267,22 @@ fit_ecdf_allmetrics$parameter <- factor(fit_ecdf_allmetrics$parameter,
                                         levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                                    "distToClosestSurfwat_km", "distToClosestEVT_km", 
                                                    "distToClosestNoFlow_km",
-                                                   "logTransmissivity_m2s", "ss_100m"))
+                                                   "logTransmissivity_m2s", "storage_m"))
 ks_results_allmetrics$parameter <- factor(ks_results_allmetrics$parameter, 
                                           levels = c("Qw_1000m3d_abs", "WTD_SS_m", 
                                                      "distToClosestSurfwat_km", "distToClosestEVT_km", 
                                                      "distToClosestNoFlow_km",
-                                                     "logTransmissivity_m2s", "ss_100m"))
+                                                     "logTransmissivity_m2s", "storage_m"))
 
 ggplot() +
   stat_ecdf(data = subset(fit_ecdf_allmetrics, parameter != "distToClosestNoFlow_km"),
             aes(x = value, color = fit_group)) +
+  geom_rect(data = subset(ks_results_allmetrics, parameter != "distToClosestNoFlow_km"),
+            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = sig)) +
   facet_wrap(~parameter, nrow = 1, scales = "free_x", 
              labeller = as_labeller(c("Qw_1000m3d_abs" = "Pumping Rate\n[x1000 m\u00b3/d]",
                                       "logTransmissivity_m2s" = "log(Trans)\n[m\u00b2/s]",
-                                      "ss_100m" = "Specific Storage\n[x0.01 m\u207b\u00b9]",
+                                      "storage_m" = "Storage [m]",
                                       "distToClosestSurfwat_km" = "Distance to\nWater [km]",
                                       "distToClosestEVT_km" = "Distance to\nET [km]",
                                       "WTD_SS_m" = "Water Table\nDepth [m]", 
