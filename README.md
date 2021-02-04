@@ -1,6 +1,9 @@
 # RRCA-analytical
 Comparison between Republican River Compact Administration MODFLOW model and analytical streamflow depletion models.
 
+This work is published:
+Zipper SC, T Gleeson, Q Li, B Kerr (2021). Comparing streamflow depletion estimation approaches in a heavily‐stressed, conjunctively‐managed aquifer. *Water Resources Research.* https://doi.org/10.1029/2020WR027591
+
 ## Table of Contents
 
  - modflow/ = MODFLOW input and output files for various models
